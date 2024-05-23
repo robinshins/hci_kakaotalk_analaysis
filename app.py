@@ -141,39 +141,39 @@ if uploaded_file is not None and api_key:
 
     # 결과 출력
     st.text_area("최종 결과", final_result, height=400)
+
     
+    # 세션 상태 초기화
+    if 'clicked_buttons' not in st.session_state:
+        st.session_state.clicked_buttons = []
+    if 'results' not in st.session_state:
+        st.session_state.results = []
+
+    def handle_button_click(button_name, process_function, prompt):
+        with st.spinner(f"{button_name} 진행중..."):
+            additional_result = process_function(prompt)
+        st.session_state.clicked_buttons.append(button_name)
+        st.session_state.results.append((button_name, additional_result))
+        st.experimental_rerun()  # 버튼 클릭 시 새로고침
+
     # 추가 분석
     st.markdown('''
     ### 추가 분석 옵션
     아래 버튼 중 하나를 클릭하여 추가 분석을 요청할 수 있습니다:
     ''')
 
-    # 클릭된 버튼 추적하고 클릭 안된 버튼은 계속 보여줌으로써 유저가 계속해서 다른 버튼을 누를 수 있도록 유도
-    if 'clicked_buttons' not in st.session_state:
-        st.session_state.clicked_buttons = []
+    available_buttons = [
+        ('전생에 둘은 무슨 관계였을까?', module.analyze_past_life),
+        ('시 작성', module.write_poem),
+        ('기념일 생성', module.create_anniversary)
+    ]
 
+    # 클릭된 버튼에 해당하는 결과 출력
+    for button_name, result in st.session_state.results:
+        st.text_area(button_name, result, height=400)
 
-    if "past_life" not in st.session_state.clicked_buttons:
-        if st.button('전생에 둘은 무슨 관계였을까?'):
-            with st.spinner("전생 분석 중..."): 
-                additional_result = module.analyze_past_life(combined_responses)
-                st.session_state.clicked_buttons.append("past_life")
-            st.text_area("전생에 둘은 무슨 관계였을까?", additional_result, height=400)
-
-
-    if "poem" not in st.session_state.clicked_buttons:
-        if st.button('시 작성'):
-            with st.spinner("시 작성 중..."):
-                additional_result = module.write_poem(combined_responses)
-                st.session_state.clicked_buttons.append("poem")
-            st.text_area("시 작성", additional_result, height=400)
-
-
-    if "anniversary" not in st.session_state.clicked_buttons:
-        if st.button('기념일 생성'):
-            combined_chunks = "\n\n".join(chunks)  # chunks를 문자열 형태로 합치기
-            additional_prompt = "다음의 분석을 참고해서 둘만의 특별한 기념일을 만들어주세요:\n\n" + combined_responses
-            with st.spinner("기념일 생성 중..."):
-                additional_result = module.create_anniversary(combined_chunks)
-                st.session_state.clicked_buttons.append("anniversary")
-            st.text_area("기념일 생성", additional_result, height=400)
+    # 클릭되지 않은 버튼 표시
+    for button_name, process_function in available_buttons:
+        if button_name not in st.session_state.clicked_buttons:
+            if st.button(button_name):
+                handle_button_click(button_name, process_function, combined_responses if button_name != '기념일 생성' else "\n\n".join(chunks))
