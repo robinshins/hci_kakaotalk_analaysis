@@ -99,13 +99,13 @@ st.markdown('''
 ''')
 
 # OpenAI API 키 입력 (환경 변수 또는 수동 입력)
-if not api_key:
-    api_key = st.text_input("OpenAI API Key", type="password")
+# if not api_key:
+#     api_key = st.text_input("OpenAI API Key", type="password")
 
 # 파일 업로드   
 uploaded_file = st.file_uploader("카카오톡 채팅 내역 업로드", type="txt")
 
-if uploaded_file is not None and api_key:
+if uploaded_file is not None:
     # 파일 읽기
     file_content = uploaded_file.read().decode("utf-8")
     
