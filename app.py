@@ -8,8 +8,14 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import module
 
 # .env 파일에서 API 키 가져오기
-load_dotenv()
-api_key = os.getenv("OPENAI_API_KEY")
+
+if os.getenv("IS_STREAMLIT_CLOUD") != "true":
+    from dotenv import load_dotenv
+    load_dotenv() 
+    api_key = os.getenv("OPENAI_API_KEY")
+
+
+
 
 def clean_text(text):
     # 정규 표현식을 사용하여 날짜 형식을 남기고 시간 형식 제거
