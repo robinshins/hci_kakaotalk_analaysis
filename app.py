@@ -6,12 +6,11 @@ from openai import OpenAI
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import module
 
-# .env 파일에서 API 키 가져오기
-
-if os.getenv("IS_STREAMLIT_CLOUD") != "true":
-    from dotenv import load_dotenv
-    load_dotenv() 
-    api_key = os.getenv("OPENAI_API_KEY")
+# 로컬에서만 .env 파일에서 API 키 가져오기
+# if os.getenv("IS_STREAMLIT_CLOUD") != "true":
+#     from dotenv import load_dotenv
+#     load_dotenv() 
+#     api_key = os.getenv("OPENAI_API_KEY")
 
 
 
