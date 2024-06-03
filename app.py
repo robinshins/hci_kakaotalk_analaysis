@@ -5,12 +5,15 @@ import os
 from openai import OpenAI
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import module
+from collections import defaultdict
+from datetime import datetime
+
 
 # 로컬에서만 .env 파일에서 API 키 가져오기
-# if os.getenv("IS_STREAMLIT_CLOUD") != "true":
-#     from dotenv import load_dotenv
-#     load_dotenv() 
-#     api_key = os.getenv("OPENAI_API_KEY")
+if os.getenv("IS_STREAMLIT_CLOUD") != "true":
+    from dotenv import load_dotenv
+    load_dotenv() 
+    api_key = os.getenv("OPENAI_API_KEY")
 
 
 
@@ -25,10 +28,86 @@ def clean_text(text):
     return cleaned_text
 
 
+DATE_PATTERN1 = r'(\d{4}년 \d{1,2}월 \d{1,2}일) ((오전|오후)?\s*\d{1,2}:\d{1,2})'
+DATE_PATTERN2 = r'(\d{4}. \d{1,2}. \d{1,2}) ((오전|오후)?\s*\d{1,2}:\d{1,2})'
+DATE_PATTERN3 = r'(\d{4}/\d{1,2}/\d{1,2}) (\d{1,2}:\d{1,2})'
+
+def group_chat_dialogs(chat):
+    chat_lines = chat.strip().split('\n')
+    grouped_chats = defaultdict(list)
+    
+    current_date = None
+    date_pattern = None
+
+        # find which pattern fits by trying various patterns
+    for line in chat_lines:
+        if date_pattern is None:
+            if re.match(DATE_PATTERN1, line):
+                date_pattern = DATE_PATTERN1
+                break
+            elif re.match(DATE_PATTERN2, line):
+                date_pattern = DATE_PATTERN2
+                break
+            elif re.match(DATE_PATTERN3, line):
+                date_pattern = DATE_PATTERN3
+                break
+    
+    # print('found pattern : '+ date_pattern)
+
+    current_date = None
+    current_time = None
+    for line in chat_lines:
+        # Check for date line
+
+
+        date_match = re.match(date_pattern, line)
+        if date_match:
+            if current_date != date_match.group(1):
+                current_date = date_match.group(1)
+                # grouped_chats[current_date].append(current_date)
+
+            if current_time != date_match.group(2):
+                current_time = date_match.group(2)
+                grouped_chats[current_date].append('\n'+current_time)
+
+        elif current_date is None:
+            # pass headers
+            continue
+        else:
+            # continuous line from prvious chat line.
+            grouped_chats[current_date].append(line)
+            continue
+
+        # Parse each chat line
+        chat_match = re.match(date_pattern + r',?\s*(.*)\s*:\s*(.*)', line)
+        if chat_match:
+            date_part, time_part, speaker, message = None, None, None, None
+            if len(chat_match.groups()) == 5:
+                # no ampm
+                date_part, am_pm, time_part, speaker, message = chat_match.groups()
+            elif len(chat_match.groups()) == 4:
+                # no ampm
+                date_part, time_part, speaker, message = chat_match.groups()
+            else:
+                # headers
+                continue
+            grouped_chats[current_date].append(f"{speaker}: {message}")
+        
+        
+    result = []
+    for date, messages in grouped_chats.items():
+        result.append(f"{date}")
+        result.extend(messages)
+        result.append("")  # for new line between different dates
+    
+    return "\n".join(result)
+
+
+
 def split_text(text, chunk_size=10000, max_chunks=10):
     # 텍스트를 chunk_size만큼 뒤에서부터 나누기
     length = len(text)
-    print("텍스트 길이:"+str(length))
+    # print("텍스트 길이:"+str(length))
     chunks = []
     for i in range(max_chunks):
         start_index = max(0, length - (i + 1) * chunk_size)
@@ -110,11 +189,27 @@ if uploaded_file is not None:
     file_content = uploaded_file.read().decode("utf-8")
     
     # 시간 정보 제거
-    cleaned_content = clean_text(file_content)
+    cleaned_content = group_chat_dialogs(file_content)
     
     chunks = split_text(cleaned_content)
+
+    
+    # print(chunks[-1])
+
     #청크 개수 확인
-    #print("청크 개수:"+str(len(chunks)))
+    origin_len = len(file_content)
+    cleaned_len = len(cleaned_content)
+    print("==============================")
+    print("|| Uploaded File : "+uploaded_file.name)
+    print("|| 원본 텍스트 길이:"+str(origin_len))
+    print("|| 가공 텍스트 길이:"+str(cleaned_len))
+    if origin_len > 0:
+        print("|| 압축률 : {:.2f}%".format(cleaned_len / origin_len * 100.0))
+    print("|| 청크 개수:"+str(len(chunks)))
+    print("")
+
+    
+    # print(cleaned_content)
     
     # GPT-4 API 요청 병렬 처리
     if "responses" not in st.session_state:
@@ -158,7 +253,7 @@ if uploaded_file is not None:
             additional_result = process_function(prompt)
         st.session_state.clicked_buttons.append(button_name)
         st.session_state.results.append((button_name, additional_result))
-        st.experimental_rerun()  # 버튼 클릭 시 새로고침
+        st.rerun()  # 버튼 클릭 시 새로고침
 
     # 추가 분석
     st.markdown('''
@@ -169,7 +264,9 @@ if uploaded_file is not None:
     available_buttons = [
         ('전생에 둘은 무슨 관계였을까?', module.analyze_past_life),
         ('시 작성', module.write_poem),
-        ('기념일 생성', module.create_anniversary)
+        ('기념일 생성', module.create_anniversary),
+        ('랩 가사 작성', module.write_rap_lyric),
+        ('퀴즈 만들기', module.make_quiz)
     ]
 
     # 클릭된 버튼에 해당하는 결과 출력
