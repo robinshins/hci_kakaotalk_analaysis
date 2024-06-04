@@ -40,7 +40,7 @@ def get_word_frequencies(words):
     return counter
 
 def generate_wordcloud(word_frequencies):
-    wordcloud = WordCloud(width=800, height=400, background_color='white', font_path='/usr/share/fonts/truetype/nanum/NanumGothic.ttf').generate_from_frequencies(word_frequencies)
+    wordcloud = WordCloud(width=800, height=400, background_color='white', font_path='assets/NanumSquareRoundR.ttf').generate_from_frequencies(word_frequencies)
     plt.figure(figsize=(10, 5))
     plt.imshow(wordcloud, interpolation='bilinear')
     plt.axis('off')
@@ -214,13 +214,21 @@ st.markdown('''
 # 파일 업로드   
 uploaded_file = st.file_uploader("카카오톡 채팅 내역 업로드", type="txt")
 
+cleaned_content = None
+
 if uploaded_file is not None:
     # 파일 읽기
     file_content = uploaded_file.read().decode("utf-8")
     
     # 시간 정보 제거
-    cleaned_content = group_chat_dialogs(file_content)
-    
+    try:
+        cleaned_content = group_chat_dialogs(file_content)
+    except(Exception):
+        st.warning("휴대폰 카카오톡 앱에서 내보내기한 파일만 지원됩니다.")
+
+
+if cleaned_content is not None:
+
     chunks = split_text(cleaned_content)
     combined_chunks = "\n\n".join(chunks)
 
@@ -278,7 +286,9 @@ if uploaded_file is not None:
 
     
         # 결과 출력
-        st.text_area("최종 결과", final_result, height=400)
+        with st.container(border=True):
+            st.markdown(f"## 최종 결과\n\n")
+            st.markdown(final_result.replace('\n','\n\n'),False)
     
     else:
         #skip result
@@ -305,7 +315,8 @@ if uploaded_file is not None:
         ('전생에 둘은 무슨 관계였을까?', module.analyze_past_life, False),
         ('시 작성', module.write_poem,True),
         ('기념일 생성', module.create_anniversary,False),
-        ('월별 추억 돌아보기', module.monthly_event, False)
+        ('월별 추억 돌아보기', module.monthly_event, False),
+        ('감정 단어 분석하기', module.emotion_donut ,False),
     ]
 
 
