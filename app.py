@@ -46,11 +46,6 @@ def generate_wordcloud(word_frequencies):
     plt.axis('off')
     plt.show()
 
-def generate_wordcloud_button(prompt):
-    words = preprocess_text_for_wordcloud(prompt)
-    word_frequencies = get_word_frequencies(words)
-    generate_wordcloud(word_frequencies)
-    st.pyplot(plt)
 
 
 
@@ -310,7 +305,7 @@ if uploaded_file is not None:
         ('전생에 둘은 무슨 관계였을까?', module.analyze_past_life, False),
         ('시 작성', module.write_poem,True),
         ('기념일 생성', module.create_anniversary,False),
-        ('워드 클라우드 생성', generate_wordcloud_button, True)
+        ('월별 추억 돌아보기', module.monthly_event, False)
     ]
 
 
