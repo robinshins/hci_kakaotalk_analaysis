@@ -1,19 +1,52 @@
 import streamlit as st
-import openai
 import re
 import os
 from openai import OpenAI
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import module
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import datetime
-
+from wordcloud import WordCloud
+import matplotlib.pyplot as plt
 
 # 로컬에서만 .env 파일에서 API 키 가져오기
 if os.getenv("IS_STREAMLIT_CLOUD") != "true":
     from dotenv import load_dotenv
     load_dotenv() 
     api_key = os.getenv("OPENAI_API_KEY")
+
+
+def preprocess_text_for_wordcloud(text):
+    cleaned_text = re.sub(r'\[.*?\]', '', text)
+    cleaned_text = re.sub(r'\d{4}년 \d{1,2}월 \d{1,2}일 \w요일', '', cleaned_text)
+    cleaned_text = re.sub(r'\d{1,2}:\d{1,2}', '', cleaned_text)
+    cleaned_text = re.sub(r'\n', ' ', cleaned_text)
+    cleaned_text = re.sub(r'[^가-힣\s]', '', cleaned_text)
+    words = cleaned_text.split()
+
+    stop_words = set(['년', '월', '일', '오전', '오후', '시간', '이모티콘', '나', '너', '난', '아', '좀', '흠', '카카오페이머니는', '온오프라인', '가능해요'])
+
+    name_pattern = re.compile(r'\b[가-힣]{2,3}\b')
+    potential_names = [word for word in words if name_pattern.match(word)]
+    name_frequencies = Counter(potential_names)
+
+    common_names = {name for name, count in name_frequencies.items() if count > 10}
+    words = [word for word in words if word not in common_names and word not in stop_words and len(word) > 1]
+
+    return words
+
+def get_word_frequencies(words):
+    counter = Counter(words)
+    return counter
+
+def generate_wordcloud(word_frequencies):
+    wordcloud = WordCloud(width=800, height=400, background_color='white', font_path='/usr/share/fonts/truetype/nanum/NanumGothic.ttf').generate_from_frequencies(word_frequencies)
+    plt.figure(figsize=(10, 5))
+    plt.imshow(wordcloud, interpolation='bilinear')
+    plt.axis('off')
+    plt.show()
+
+
 
 
 # obsolete
@@ -57,8 +90,6 @@ def group_chat_dialogs(chat):
     current_time = None
     for line in chat_lines:
         # Check for date line
-
-
         date_match = re.match(date_pattern, line)
         if date_match:
             if current_date != date_match.group(1):
@@ -101,7 +132,6 @@ def group_chat_dialogs(chat):
         result.append("")  # for new line between different dates
     
     return "\n".join(result)
-
 
 
 def split_text(text, chunk_size=10000, max_chunks=10):
@@ -207,8 +237,11 @@ if uploaded_file is not None:
     print("|| 청크 개수:"+str(len(chunks)))
     print("")
 
-    
+    words = preprocess_text_for_wordcloud(cleaned_content)
+    word_frequencies = get_word_frequencies(words)
 
+    generate_wordcloud(word_frequencies)
+    st.pyplot(plt)
     ##################################
     # whether run basic analysis or not
     ##################################
@@ -272,12 +305,14 @@ if uploaded_file is not None:
         ('전생에 둘은 무슨 관계였을까?', module.analyze_past_life, False),
         ('시 작성', module.write_poem,True),
         ('기념일 생성', module.create_anniversary,False),
+        ('월별 추억 돌아보기', module.monthly_event, False)
     ]
 
 
     # 클릭된 버튼에 해당하는 결과 출력
+
     for button_name, result in st.session_state.results:
-        if type(result) is str:
+        if isinstance(result, str):
             # st.text_area(button_name, result, height=400)
             with st.container(border=True):
                 st.markdown(f"## {button_name}\n\n")
@@ -287,17 +322,19 @@ if uploaded_file is not None:
             with st.container(border=True):
                 result()
 
-
-    #handler
+    # 버튼 클릭 핸들러 함수 정의
     def handle_button_click(button_name, process_function, prompt):
         with st.spinner(f"{button_name} 진행중..."):
             additional_result = process_function(prompt)
         st.session_state.clicked_buttons.append(button_name)
         st.session_state.results.append((button_name, additional_result))
-        st.rerun()  # 버튼 클릭 시 새로고침
+        st.experimental_rerun()  # 버튼 클릭 시 새로고침
 
     # 클릭되지 않은 버튼 표시
     for button_name, process_function, use_response in available_buttons:
         if button_name not in st.session_state.clicked_buttons:
             if st.button(button_name):
-                handle_button_click(button_name, process_function, combined_responses if use_response else combined_chunks)
+                if use_response:
+                    handle_button_click(button_name, process_function, combined_responses)
+                else:
+                    handle_button_click(button_name, process_function, combined_chunks)

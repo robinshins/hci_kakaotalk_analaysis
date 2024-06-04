@@ -64,3 +64,23 @@ def create_anniversary(kakao_chat):
         ],
     )
     return response.choices[0].message.content
+
+
+def monthly_event(kakao_chat):
+    client = OpenAI()
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {
+                "role": "system",
+                "content": """
+                채팅 내역을 바탕으로 각 월의 가장 메인이 되는 이벤트를 명사형으로 추출하고, 그 이벤트에 대한 두 줄 정도의 설명을 작성해주세요.
+                """,
+            },
+            {
+                "role": "user",
+                "content": "채팅 내역 : " + kakao_chat,
+            },
+        ],
+    )
+    return response.choices[0].message.content
