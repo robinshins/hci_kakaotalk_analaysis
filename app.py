@@ -305,19 +305,30 @@ if uploaded_file is not None:
 
     # 클릭된 버튼에 해당하는 결과 출력
 
-#handler
-def handle_button_click(button_name, process_function, prompt):
-    with st.spinner(f"{button_name} 진행중..."):
-        additional_result = process_function(prompt)
-    st.session_state.clicked_buttons.append(button_name)
-    st.session_state.results.append((button_name, additional_result))
-    st.rerun()  # 버튼 클릭 시 새로고침
+    for button_name, result in st.session_state.results:
+        if type(result) is str:
+            # st.text_area(button_name, result, height=400)
+            with st.container(border=True):
+                st.markdown(f"## {button_name}\n\n")
+                st.markdown(result,False)
+        else :
+            # if result is given as callable
+            with st.container(border=True):
+                result()
 
-# 클릭되지 않은 버튼 표시
-for button_name, process_function, use_response in available_buttons:
-    if button_name not in st.session_state.clicked_buttons:
-        if st.button(button_name):
-            if use_response:
-                handle_button_click(button_name, process_function, combined_responses)
-            else:
-                handle_button_click(button_name, process_function, combined_chunks)
+    # 버튼 클릭 핸들러 함수 정의
+    def handle_button_click(button_name, process_function, prompt):
+        with st.spinner(f"{button_name} 진행중..."):
+            additional_result = process_function(prompt)
+        st.session_state.clicked_buttons.append(button_name)
+        st.session_state.results.append((button_name, additional_result))
+        st.experimental_rerun()  # 버튼 클릭 시 새로고침
+
+    # 클릭되지 않은 버튼 표시
+    for button_name, process_function, use_response in available_buttons:
+        if button_name not in st.session_state.clicked_buttons:
+            if st.button(button_name):
+                if use_response:
+                    handle_button_click(button_name, process_function, combined_responses)
+                else:
+                    handle_button_click(button_name, process_function, combined_chunks)
