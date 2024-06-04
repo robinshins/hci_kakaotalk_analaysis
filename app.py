@@ -23,6 +23,16 @@ def preprocess_text_for_wordcloud(text):
     cleaned_text = re.sub(r'\n', ' ', cleaned_text)
     cleaned_text = re.sub(r'[^가-힣\s]', '', cleaned_text)
     words = cleaned_text.split()
+
+    stop_words = set(['년', '월', '일', '오전', '오후', '시간', '이모티콘', '나', '너', '난', '아', '좀', '흠', '카카오페이머니는', '온오프라인', '가능해요'])
+
+    name_pattern = re.compile(r'\b[가-힣]{2,3}\b')
+    potential_names = [word for word in words if name_pattern.match(word)]
+    name_frequencies = Counter(potential_names)
+
+    common_names = {name for name, count in name_frequencies.items() if count > 10}
+    words = [word for word in words if word not in common_names and word not in stop_words and len(word) > 1]
+
     return words
 
 def get_word_frequencies(words):
@@ -34,6 +44,7 @@ def generate_wordcloud(word_frequencies):
     plt.figure(figsize=(10, 5))
     plt.imshow(wordcloud, interpolation='bilinear')
     plt.axis('off')
+    plt.show()
 
 def generate_wordcloud_button(prompt):
     words = preprocess_text_for_wordcloud(prompt)
@@ -306,7 +317,7 @@ if uploaded_file is not None:
     # 클릭된 버튼에 해당하는 결과 출력
 
     for button_name, result in st.session_state.results:
-        if type(result) is str:
+        if isinstance(result, str):
             # st.text_area(button_name, result, height=400)
             with st.container(border=True):
                 st.markdown(f"## {button_name}\n\n")
