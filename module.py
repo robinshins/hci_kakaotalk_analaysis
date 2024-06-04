@@ -33,7 +33,7 @@ def write_poem(combined_responses):
                 "role": "system",
                 "content": """
                 당신은 시인입니다. 첨부된 채팅 내역 분석을 바탕으로 시를 작성해주세요.
-                시에는 두 사람의 관계가 은은하게 담길 수 있도록 해주세요.
+                직접적으로 두 사람의 관계를 언급하지 않으며, 비유적으로 작성.
                 """,
             },
             {
@@ -41,6 +41,7 @@ def write_poem(combined_responses):
                 "content": "채팅 내역 분석 : " + combined_responses,
             },
         ],
+    temperature=0.9,
     )
     return response.choices[0].message.content
 
