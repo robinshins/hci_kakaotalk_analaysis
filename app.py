@@ -5,16 +5,18 @@ import os
 from openai import OpenAI
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import module
+from collections import defaultdict
+from datetime import datetime
+
 
 # 로컬에서만 .env 파일에서 API 키 가져오기
-# if os.getenv("IS_STREAMLIT_CLOUD") != "true":
-#     from dotenv import load_dotenv
-#     load_dotenv() 
-#     api_key = os.getenv("OPENAI_API_KEY")
+if os.getenv("IS_STREAMLIT_CLOUD") != "true":
+    from dotenv import load_dotenv
+    load_dotenv() 
+    api_key = os.getenv("OPENAI_API_KEY")
 
 
-
-
+# obsolete
 def clean_text(text):
     # 정규 표현식을 사용하여 날짜 형식을 남기고 시간 형식 제거
     cleaned_text = re.sub(r'\d{4}/\d{2}/\d{2} \d{2}:\d{2}, ', '', text)
@@ -25,10 +27,87 @@ def clean_text(text):
     return cleaned_text
 
 
+DATE_PATTERN1 = r'(\d{4}년 \d{1,2}월 \d{1,2}일) ((오전|오후)?\s*\d{1,2}:\d{1,2})'
+DATE_PATTERN2 = r'(\d{4}. \d{1,2}. \d{1,2}) ((오전|오후)?\s*\d{1,2}:\d{1,2})'
+DATE_PATTERN3 = r'(\d{4}/\d{1,2}/\d{1,2}) (\d{1,2}:\d{1,2})'
+
+def group_chat_dialogs(chat):
+    chat_lines = chat.strip().split('\n')
+    grouped_chats = defaultdict(list)
+    
+    current_date = None
+    date_pattern = None
+
+        # find which pattern fits by trying various patterns
+    for line in chat_lines:
+        if date_pattern is None:
+            if re.match(DATE_PATTERN1, line):
+                date_pattern = DATE_PATTERN1
+                break
+            elif re.match(DATE_PATTERN2, line):
+                date_pattern = DATE_PATTERN2
+                break
+            elif re.match(DATE_PATTERN3, line):
+                date_pattern = DATE_PATTERN3
+                break
+    
+    # print('found pattern : '+ date_pattern)
+
+    current_date = None
+    current_time = None
+    for line in chat_lines:
+        # Check for date line
+
+
+        date_match = re.match(date_pattern, line)
+        if date_match:
+            if current_date != date_match.group(1):
+                current_date = date_match.group(1)
+                # grouped_chats[current_date].append(current_date)
+
+            if current_time != date_match.group(2):
+                current_time = date_match.group(2)
+                grouped_chats[current_date].append('\n'+current_time)
+
+        elif current_date is None:
+            # pass headers
+            continue
+        else:
+            # continuous line from prvious chat line.
+            grouped_chats[current_date].append(line)
+            continue
+
+        # Parse each chat line
+        chat_match = re.match(date_pattern + r',?\s*(.*)\s*:\s*(.*)', line)
+        if chat_match:
+            date_part, time_part, speaker, message = None, None, None, None
+            if len(chat_match.groups()) == 5:
+                # no ampm
+                date_part, am_pm, time_part, speaker, message = chat_match.groups()
+            elif len(chat_match.groups()) == 4:
+                # no ampm
+                date_part, time_part, speaker, message = chat_match.groups()
+            else:
+                # headers
+                continue
+            grouped_chats[current_date].append(f"{speaker}: {message}")
+        
+        
+    result = []
+
+    for date, messages in grouped_chats.items():
+        result.append(f"{date}")
+        result.extend(messages)
+        result.append("")  # for new line between different dates
+    
+    return "\n".join(result)
+
+
+
 def split_text(text, chunk_size=10000, max_chunks=10):
     # 텍스트를 chunk_size만큼 뒤에서부터 나누기
     length = len(text)
-    print("텍스트 길이:"+str(length))
+    # print("텍스트 길이:"+str(length))
     chunks = []
     for i in range(max_chunks):
         start_index = max(0, length - (i + 1) * chunk_size)
@@ -110,42 +189,67 @@ if uploaded_file is not None:
     file_content = uploaded_file.read().decode("utf-8")
     
     # 시간 정보 제거
-    cleaned_content = clean_text(file_content)
+    cleaned_content = group_chat_dialogs(file_content)
     
     chunks = split_text(cleaned_content)
+    combined_chunks = "\n\n".join(chunks)
+
+
     #청크 개수 확인
-    #print("청크 개수:"+str(len(chunks)))
+    origin_len = len(file_content)
+    cleaned_len = len(cleaned_content)
+    print("==============================")
+    print("|| Uploaded File : "+uploaded_file.name)
+    print("|| 원본 텍스트 길이:"+str(origin_len))
+    print("|| 가공 텍스트 길이:"+str(cleaned_len))
+    if origin_len > 0:
+        print("|| 압축률 : {:.2f}%".format(cleaned_len / origin_len * 100.0))
+    print("|| 청크 개수:"+str(len(chunks)))
+    print("")
+
+    
+
+    ##################################
+    # whether run basic analysis or not
+    ##################################
+    make_response = True
+    # make_response = False
     
     # GPT-4 API 요청 병렬 처리
-    if "responses" not in st.session_state:
-        responses = []
-        with st.spinner("분석 중..."):
-            with ThreadPoolExecutor() as executor:
-                future_to_chunk = {executor.submit(gpt_request, chunk): chunk for chunk in chunks}
-                for future in as_completed(future_to_chunk):
-                    try:
-                        response = future.result()
-                        responses.append(response)
-                    except Exception as exc:
-                        st.error(f"Chunk 처리 중 오류 발생: {exc}")
+    if make_response:
+        if "responses" not in st.session_state and make_response:
+            responses = []
+            with st.spinner("분석 중..."):
+                with ThreadPoolExecutor() as executor:
+                    future_to_chunk = {executor.submit(gpt_request, chunk): chunk for chunk in chunks}
+                    for future in as_completed(future_to_chunk):
+                        try:
+                            response = future.result()
+                            responses.append(response)
+                        except Exception as exc:
+                            st.error(f"Chunk 처리 중 오류 발생: {exc}")
 
-        # 응답 통합
-        combined_responses = "\n\n".join(responses)
-        with st.spinner("리포트 생성중 ..."):
-            final_result = aggregate_responses(combined_responses)
+            # 응답 통합
+            combined_responses = "\n\n".join(responses)
+            with st.spinner("리포트 생성중 ..."):
+                final_result = aggregate_responses(combined_responses)
+        
+            # 결과 저장
+            st.session_state.responses = responses
+            st.session_state.combined_responses = combined_responses
+            st.session_state.final_result = final_result
+        else:
+            responses = st.session_state.responses
+            combined_responses = st.session_state.combined_responses
+            final_result = st.session_state.final_result
+
     
-        # 결과 저장
-        st.session_state.responses = responses
-        st.session_state.combined_responses = combined_responses
-        st.session_state.final_result = final_result
+        # 결과 출력
+        st.text_area("최종 결과", final_result, height=400)
+    
     else:
-        responses = st.session_state.responses
-        combined_responses = st.session_state.combined_responses
-        final_result = st.session_state.final_result
-
-    # 결과 출력
-    st.text_area("최종 결과", final_result, height=400)
-
+        #skip result
+        final_result = ""
     
     # 세션 상태 초기화
     if 'clicked_buttons' not in st.session_state:
@@ -153,12 +257,6 @@ if uploaded_file is not None:
     if 'results' not in st.session_state:
         st.session_state.results = []
 
-    def handle_button_click(button_name, process_function, prompt):
-        with st.spinner(f"{button_name} 진행중..."):
-            additional_result = process_function(prompt)
-        st.session_state.clicked_buttons.append(button_name)
-        st.session_state.results.append((button_name, additional_result))
-        st.experimental_rerun()  # 버튼 클릭 시 새로고침
 
     # 추가 분석
     st.markdown('''
@@ -166,18 +264,40 @@ if uploaded_file is not None:
     아래 버튼 중 하나를 클릭하여 추가 분석을 요청할 수 있습니다:
     ''')
 
+    #########################################
+    # Add buttons here
+    # ('button name', function, use analyzed respones(True) or whole chunk(False))
+    #########################################
     available_buttons = [
-        ('전생에 둘은 무슨 관계였을까?', module.analyze_past_life),
-        ('시 작성', module.write_poem),
-        ('기념일 생성', module.create_anniversary)
+        ('전생에 둘은 무슨 관계였을까?', module.analyze_past_life, False),
+        ('시 작성', module.write_poem,True),
+        ('기념일 생성', module.create_anniversary,False),
     ]
+
 
     # 클릭된 버튼에 해당하는 결과 출력
     for button_name, result in st.session_state.results:
-        st.text_area(button_name, result, height=400)
+        if type(result) is str:
+            # st.text_area(button_name, result, height=400)
+            with st.container(border=True):
+                st.markdown(f"## {button_name}\n\n")
+                st.markdown(result,False)
+        else :
+            # if result is given as callable
+            with st.container(border=True):
+                result()
+
+
+    #handler
+    def handle_button_click(button_name, process_function, prompt):
+        with st.spinner(f"{button_name} 진행중..."):
+            additional_result = process_function(prompt)
+        st.session_state.clicked_buttons.append(button_name)
+        st.session_state.results.append((button_name, additional_result))
+        st.rerun()  # 버튼 클릭 시 새로고침
 
     # 클릭되지 않은 버튼 표시
-    for button_name, process_function in available_buttons:
+    for button_name, process_function, use_response in available_buttons:
         if button_name not in st.session_state.clicked_buttons:
             if st.button(button_name):
-                handle_button_click(button_name, process_function, combined_responses if button_name != '기념일 생성' else "\n\n".join(chunks))
+                handle_button_click(button_name, process_function, combined_responses if use_response else combined_chunks)
