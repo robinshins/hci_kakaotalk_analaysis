@@ -10,6 +10,9 @@ https://robinshins-hci-kakaotalk-analaysis-app-nyvzpi.streamlit.app/
 ![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=Streamlit&logoColor=white)
 ![OpenAI](https://img.shields.io/badge/OpenAI-412991?style=for-the-badge&logo=OpenAI&logoColor=white)
 
+<br>
+<br>
+
 ### 실행 방법
 
 - README.md 상단의 배포된 url을 통해 접속하실 수 있습니다.
@@ -18,11 +21,8 @@ https://robinshins-hci-kakaotalk-analaysis-app-nyvzpi.streamlit.app/
 - root directory 에 '.env' 파일 생성 및 키 입력 필요. 'OPENAI_API_KEY= ***' (보고서에 기재)
 
 
-<br>
-<br>
 
 ```
-
 # 깃허브 클론
 $ git clone https://github.com/robinshins/hci_kakaotalk_analaysis.git
 $ cd hci_kakaotalk_analaysis
