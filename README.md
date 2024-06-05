@@ -25,6 +25,41 @@ https://robinshins-hci-kakaotalk-analaysis-app-nyvzpi.streamlit.app/
 
 - README.md 상단의 배포된 url을 통해 접속하실 수 있습니다.
 - 로컬에서 실행할 때는 터미널에 'streamlit run app.py'를 입력하시면 됩니다.
+- 요구사항 : python 및 pip 3 이상
+- root directory 에 '.env' 파일 생성 및 키 입력 필요. 'OPENAI_API_KEY= ***' (보고서에 기재)
+
+
+<br>
+<br>
+
+```
+
+# 깃허브 클론
+$ git clone https://github.com/robinshins/hci_kakaotalk_analaysis.git
+$ cd hci_kakaotalk_analaysis
+
+# 가상환경 설정
+$ python -m venv .venv
+
+# 가상 환경 활성화
+# Windows Shell: 
+> .venv\Scripts\activate
+# git bash in Windows:
+$ source .venv/Scripts/activate
+# Linux/Mac/git bash:
+$ source .venv/bin/activate
+
+
+# 패키지 설치
+$ pip install -r requirements.txt
+
+# 앱 실행
+$ streamlit run app.py
+```
+
+<br>
+<br>
+
 
 ### People
 
