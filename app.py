@@ -60,15 +60,15 @@ def clean_text(text):
     return cleaned_text
 
 
-DATE_PATTERN1 = r'(\d{4}년 \d{1,2}월 \d{1,2}일) ((오전|오후)?\s*\d{1,2}:\d{1,2})'
-DATE_PATTERN2 = r'(\d{4}. \d{1,2}. \d{1,2}) ((오전|오후)?\s*\d{1,2}:\d{1,2})'
-DATE_PATTERN3 = r'(\d{4}/\d{1,2}/\d{1,2}) (\d{1,2}:\d{1,2})'
+DATE_PATTERN1 = r'(\d{4}년 \d{1,2}월 \d{1,2}일) ((오전|오후)?\s*\d{1,2}:\d{1,2})'   # 2023년 12월 12일 (오전) 4:24   
+DATE_PATTERN2 = r'(\d{4}. \d{1,2}. \d{1,2}(.)?) ((오전|오후)?\s*\d{1,2}:\d{1,2})'    # 2023. 10. 1(.) (오전) 4:24
+DATE_PATTERN3 = r'(\d{4}/\d{1,2}/\d{1,2}) (\d{1,2}:\d{1,2})'        # 2023/1/12 19:23
+
+DATE_PATTERN_PC_DATE = r'(-*\s*\d{4}년 \d{1,2}월 \d{1,2}일 [월화수목금토일]\s*-*)'  # --------------- 2024년 4월 3일 수요일 ---------------
+DATE_PATTERN_PC_MSG = r'\[(.*)\] \[((오전|오후)? \d{1,2}:\d{2})\]' # [홍길동] [오후 10:49]
 
 def group_chat_dialogs(chat):
     chat_lines = chat.strip().split('\n')
-    grouped_chats = defaultdict(list)
-    
-    current_date = None
     date_pattern = None
 
         # find which pattern fits by trying various patterns
@@ -83,9 +83,20 @@ def group_chat_dialogs(chat):
             elif re.match(DATE_PATTERN3, line):
                 date_pattern = DATE_PATTERN3
                 break
-    
-    # print('found pattern : '+ date_pattern)
+            elif re.match(DATE_PATTERN_PC_DATE, line):
+                date_pattern = DATE_PATTERN_PC_DATE
+                break
 
+    print('found pattern : '+ date_pattern)
+
+    if date_pattern == DATE_PATTERN_PC_DATE:
+        return parse_chat_pc(chat_lines)
+    else:
+        return parse_chat_mobile(chat_lines,date_pattern)
+
+
+def parse_chat_mobile(chat_lines, date_pattern):
+    grouped_chats = defaultdict(list)
     current_date = None
     current_time = None
     for line in chat_lines:
@@ -108,6 +119,7 @@ def group_chat_dialogs(chat):
             grouped_chats[current_date].append(line)
             continue
 
+
         # Parse each chat line
         chat_match = re.match(date_pattern + r',?\s*(.*)\s*:\s*(.*)', line)
         if chat_match:
@@ -118,6 +130,61 @@ def group_chat_dialogs(chat):
             elif len(chat_match.groups()) == 4:
                 # no ampm
                 date_part, time_part, speaker, message = chat_match.groups()
+            else:
+                # headers
+                continue
+            grouped_chats[current_date].append(f"{speaker}: {message}")
+        
+        
+    result = []
+
+    for date, messages in grouped_chats.items():
+        result.append(f"{date}")
+        result.extend(messages)
+        result.append("")  # for new line between different dates
+    
+    return "\n".join(result)
+
+
+def parse_chat_pc(chat_lines):
+    grouped_chats = defaultdict(list)
+    current_date = None
+    current_time = None
+    for line in chat_lines:
+        # Check for date line
+        date_match = re.match(DATE_PATTERN_PC_DATE, line)
+        date_match_msg = re.match(DATE_PATTERN_PC_MSG, line)
+
+        if date_match:
+            if current_date != date_match.group(1):
+                current_date = date_match.group(1)
+                # continue to next lines
+                continue
+
+        if date_match_msg:
+            if current_time != date_match_msg.group(2):
+                current_time = date_match_msg.group(2)
+                grouped_chats[current_date].append('\n'+current_time)
+
+        elif current_date is None:
+            # pass headers
+            continue
+        else:
+            # continuous line from prvious chat line.
+            grouped_chats[current_date].append(line)
+            continue
+
+
+        # Parse each chat line
+        chat_match = re.match(DATE_PATTERN_PC_MSG + r'\s*(.*)', line)
+        if chat_match:
+            speaker, time_part, message = None, None, None
+            if len(chat_match.groups()) == 4:
+                # ampm
+                speaker, am_pm, time_part, message = chat_match.groups()
+            elif len(chat_match.groups()) == 3:
+                # no ampm
+                speaker, time_part, message = chat_match.groups()
             else:
                 # headers
                 continue
@@ -227,10 +294,12 @@ if uploaded_file is not None:
     file_content = uploaded_file.read().decode("utf-8")
     
     # 시간 정보 제거
+    cleaned_content = None
     try:
         cleaned_content = group_chat_dialogs(file_content)
     except(Exception):
-        st.warning("휴대폰 카카오톡 앱에서 내보내기한 파일만 지원됩니다.")
+        # st.warning("휴대폰 카카오톡 앱에서 내보내기한 파일만 지원됩니다.")\
+        cleaned_content = file_content
 
 
 if cleaned_content is not None:
@@ -254,8 +323,11 @@ if cleaned_content is not None:
     words = preprocess_text_for_wordcloud(cleaned_content)
     word_frequencies = get_word_frequencies(words)
 
-    generate_wordcloud(word_frequencies)
-    st.pyplot(plt)
+    with st.spinner("분석 중..."):
+        generate_wordcloud(word_frequencies)
+        st.pyplot(plt)
+
+        
     ##################################
     # whether run basic analysis or not
     ##################################
@@ -320,6 +392,7 @@ if cleaned_content is not None:
     available_buttons = [
         ('전생에 둘은 무슨 관계였을까?', module.analyze_past_life, False),
         ('시 작성', module.write_poem,True),
+        ('랩 가사 작성', module.write_rap_lyric ,True),
         ('기념일 생성', module.create_anniversary,False),
         ('월별 추억 돌아보기', module.monthly_event, False),
         ('감정 단어 분석하기', module.emotion_donut ,False),
