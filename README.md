@@ -3,17 +3,6 @@
 _Published Domain(Web)_:
 https://robinshins-hci-kakaotalk-analaysis-app-nyvzpi.streamlit.app/
 
-### Project Overview
-
-> 소중한 인간관계를 더욱 소중하게 유지하는 가장 쉬운 방법
-
-일상 속에서~~ TBD
-
-**_Main Features_**
-
-- 이런 기능
-- 저런 기능
-- 보고서 완성 후 tbd
 
 ### Tech Stacks
 
