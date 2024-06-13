@@ -203,7 +203,7 @@ def parse_chat_pc(chat_lines):
     return "\n".join(result)
 
 
-def split_text(text, chunk_size=10000, max_chunks=1):
+def split_text(text, chunk_size=10000, max_chunks=10):
     # 텍스트를 chunk_size만큼 뒤에서부터 나누기
     length = len(text)
     # print("텍스트 길이:"+str(length))
