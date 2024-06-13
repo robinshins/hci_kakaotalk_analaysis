@@ -132,20 +132,12 @@ def handle_button_click(button_name, explanation, process_function, prompt):
         st.session_state.modal_title = button_name
         st.session_state.modal_clicked = True
     else:
-        if button_name == "기본 분석":
-            st.session_state.modal_title = button_name
-            st.session_state.modal_content = "로딩 중..."
-            show_modal()
-            with st.spinner(f"{button_name} 진행중..."):
-                process_file(st.session_state.uploaded_file)
-        else:
-            with st.spinner(f"{button_name} 진행중..."):
-                additional_result = process_function(prompt)
-                st.session_state.clicked_buttons.append(button_name)
-                st.session_state.results.append((button_name, explanation, additional_result))
-                st.session_state.modal_title = button_name
-                st.session_state.modal_content = additional_result
-                st.session_state.modal_clicked = True
+        additional_result = process_function(prompt)
+        st.session_state.clicked_buttons.append(button_name)
+        st.session_state.results.append((button_name, explanation, additional_result))
+        st.session_state.modal_title = button_name
+        st.session_state.modal_content = additional_result
+        st.session_state.modal_clicked = True
     st.rerun()
 
 # 파일 업로드   
@@ -172,35 +164,24 @@ for idx, (button_name, explanation, process_function, use_response) in enumerate
     is_clicked = button_name in st.session_state.clicked_buttons
     background_color = "#d3d3d3" if button_name in st.session_state.clicked_buttons else "#f0f0f0"
     button_style = f"background-color: {background_color}; height: 200px; width: 100%; font-size: 20px; border: none;"
+    button_label = button_name if button_name not in st.session_state.clicked_buttons else f"{button_name}(완료)"
+    button_explanation = explanation if button_name not in st.session_state.clicked_buttons else "클릭해서 결과를 확인하세요"
+
     with cols[idx % 3]:
-        button_placeholder = st.empty()  # Create an empty placeholder for the button
-        with button_placeholder:
-            if st.button(f"### {button_name if button_name not in st.session_state.clicked_buttons else button_name + "(완료)"}\n {explanation if button_name not in st.session_state.clicked_buttons else "클릭해서 결과를 확인하세요"}"):
-                if button_name in st.session_state.clicked_buttons:
-                    result_index = st.session_state.clicked_buttons.index(button_name)
-                    st.session_state.modal_content = st.session_state.results[result_index][2]
-                    st.session_state.modal_title = button_name
-                    st.session_state.modal_clicked = True
-                    st.rerun()
-                else:
+        if st.button(f"### {button_label}\n {button_explanation}"):
+            if button_name in st.session_state.clicked_buttons:
+                result_index = st.session_state.clicked_buttons.index(button_name)
+                st.session_state.modal_content = st.session_state.results[result_index][2]
+                st.session_state.modal_title = button_name
+                st.session_state.modal_clicked = True
+                st.rerun()
+            else:
+                with st.spinner(f"{button_name} 진행중..."):
                     if use_response:
                         handle_button_click(button_name, explanation, process_function, st.session_state.combined_responses)
                     else:
                         handle_button_click(button_name, explanation, process_function, st.session_state.combined_chunks)
-        # Update the placeholder with the styled button
-        button_html = f"""
-        <style>
-        #{button_placeholder.element_id} button {{
-            background-color: {'#4CAF50' if is_clicked else '#f0f0f0'};
-            color: {'white' if is_clicked else 'black'};
-            border: 2px solid {'#4CAF50' if is_clicked else '#d3d3d3'};
-            height: 200px;
-            width: 100%;
-            font-size: 20px;
-        }}
-        </style>
-        """
-        st.markdown(button_html, unsafe_allow_html=True)
+
 
 # CSS 스타일로 버튼 크기 조정
 st.markdown("""

@@ -242,7 +242,6 @@ def gpt_request(kakao_chat):
             },
         ],
     )
-    print(response)
     return response.choices[0].message.content
 
 # 최종 결과 통합때만 gpt-4o 사용
