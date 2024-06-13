@@ -1,277 +1,16 @@
 import streamlit as st
-import re
 import os
-from openai import OpenAI
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import module
-from collections import Counter, defaultdict
-from datetime import datetime
-from wordcloud import WordCloud
 import matplotlib.pyplot as plt
+import io
+import base64
 
 # 로컬에서만 .env 파일에서 API 키 가져오기
 if os.getenv("IS_STREAMLIT_CLOUD") != "true":
     from dotenv import load_dotenv
     load_dotenv() 
     api_key = os.getenv("OPENAI_API_KEY")
-
-
-def preprocess_text_for_wordcloud(text):
-    cleaned_text = re.sub(r'\[.*?\]', '', text)
-    cleaned_text = re.sub(r'\d{4}년 \d{1,2}월 \d{1,2}일 \w요일', '', cleaned_text)
-    cleaned_text = re.sub(r'\d{1,2}:\d{1,2}', '', cleaned_text)
-    cleaned_text = re.sub(r'\n', ' ', cleaned_text)
-    cleaned_text = re.sub(r'[^가-힣\s]', '', cleaned_text)
-    words = cleaned_text.split()
-
-    stop_words = set(['년', '월', '일', '오전', '오후', '시간', '이모티콘', '나', '너', '난', '아', '좀', '흠', '카카오페이머니는', '온오프라인', '가능해요'])
-
-    name_pattern = re.compile(r'\b[가-힣]{2,3}\b')
-    potential_names = [word for word in words if name_pattern.match(word)]
-    name_frequencies = Counter(potential_names)
-
-    common_names = {name for name, count in name_frequencies.items() if count > 10}
-    words = [word for word in words if word not in common_names and word not in stop_words and len(word) > 1]
-
-    return words
-
-def get_word_frequencies(words):
-    counter = Counter(words)
-    return counter
-
-def generate_wordcloud(word_frequencies):
-    wordcloud = WordCloud(width=800, height=400, background_color='white', font_path='assets/NanumSquareRoundR.ttf').generate_from_frequencies(word_frequencies)
-    plt.figure(figsize=(10, 5))
-    plt.imshow(wordcloud, interpolation='bilinear')
-    plt.axis('off')
-    plt.show()
-
-
-
-
-# obsolete
-def clean_text(text):
-    # 정규 표현식을 사용하여 날짜 형식을 남기고 시간 형식 제거
-    cleaned_text = re.sub(r'\d{4}/\d{2}/\d{2} \d{2}:\d{2}, ', '', text)
-    # 쉼표 뒤에 남아 있는 공백 제거
-    cleaned_text = re.sub(r',\s+', ', ', cleaned_text)
-    # 중복 공백 제거
-    cleaned_text = re.sub(r'\s{2,}', ' ', cleaned_text)
-    return cleaned_text
-
-
-DATE_PATTERN1 = r'(\d{4}년 \d{1,2}월 \d{1,2}일) ((오전|오후)?\s*\d{1,2}:\d{1,2})'   # 2023년 12월 12일 (오전) 4:24   
-DATE_PATTERN2 = r'(\d{4}. \d{1,2}. \d{1,2}(.)?) ((오전|오후)?\s*\d{1,2}:\d{1,2})'    # 2023. 10. 1(.) (오전) 4:24
-DATE_PATTERN3 = r'(\d{4}/\d{1,2}/\d{1,2}) (\d{1,2}:\d{1,2})'        # 2023/1/12 19:23
-
-DATE_PATTERN_PC_DATE = r'(-*\s*\d{4}년 \d{1,2}월 \d{1,2}일 [월화수목금토일]\s*-*)'  # --------------- 2024년 4월 3일 수요일 ---------------
-DATE_PATTERN_PC_MSG = r'\[(.*)\] \[((오전|오후)? \d{1,2}:\d{2})\]' # [홍길동] [오후 10:49]
-
-def group_chat_dialogs(chat):
-    chat_lines = chat.strip().split('\n')
-    date_pattern = None
-
-        # find which pattern fits by trying various patterns
-    for line in chat_lines:
-        if date_pattern is None:
-            if re.match(DATE_PATTERN1, line):
-                date_pattern = DATE_PATTERN1
-                break
-            elif re.match(DATE_PATTERN2, line):
-                date_pattern = DATE_PATTERN2
-                break
-            elif re.match(DATE_PATTERN3, line):
-                date_pattern = DATE_PATTERN3
-                break
-            elif re.match(DATE_PATTERN_PC_DATE, line):
-                date_pattern = DATE_PATTERN_PC_DATE
-                break
-
-    print('found pattern : '+ date_pattern)
-
-    if date_pattern == DATE_PATTERN_PC_DATE:
-        return parse_chat_pc(chat_lines)
-    else:
-        return parse_chat_mobile(chat_lines,date_pattern)
-
-
-def parse_chat_mobile(chat_lines, date_pattern):
-    grouped_chats = defaultdict(list)
-    current_date = None
-    current_time = None
-    for line in chat_lines:
-        # Check for date line
-        date_match = re.match(date_pattern, line)
-        if date_match:
-            if current_date != date_match.group(1):
-                current_date = date_match.group(1)
-                # grouped_chats[current_date].append(current_date)
-
-            if current_time != date_match.group(2):
-                current_time = date_match.group(2)
-                grouped_chats[current_date].append('\n'+current_time)
-
-        elif current_date is None:
-            # pass headers
-            continue
-        else:
-            # continuous line from prvious chat line.
-            grouped_chats[current_date].append(line)
-            continue
-
-
-        # Parse each chat line
-        chat_match = re.match(date_pattern + r',?\s*(.*)\s*:\s*(.*)', line)
-        if chat_match:
-            date_part, time_part, speaker, message = None, None, None, None
-            if len(chat_match.groups()) == 5:
-                # no ampm
-                date_part, am_pm, time_part, speaker, message = chat_match.groups()
-            elif len(chat_match.groups()) == 4:
-                # no ampm
-                date_part, time_part, speaker, message = chat_match.groups()
-            else:
-                # headers
-                continue
-            grouped_chats[current_date].append(f"{speaker}: {message}")
-        
-        
-    result = []
-
-    for date, messages in grouped_chats.items():
-        result.append(f"{date}")
-        result.extend(messages)
-        result.append("")  # for new line between different dates
-    
-    return "\n".join(result)
-
-
-def parse_chat_pc(chat_lines):
-    grouped_chats = defaultdict(list)
-    current_date = None
-    current_time = None
-    for line in chat_lines:
-        # Check for date line
-        date_match = re.match(DATE_PATTERN_PC_DATE, line)
-        date_match_msg = re.match(DATE_PATTERN_PC_MSG, line)
-
-        if date_match:
-            if current_date != date_match.group(1):
-                current_date = date_match.group(1)
-                # continue to next lines
-                continue
-
-        if date_match_msg:
-            if current_time != date_match_msg.group(2):
-                current_time = date_match_msg.group(2)
-                grouped_chats[current_date].append('\n'+current_time)
-
-        elif current_date is None:
-            # pass headers
-            continue
-        else:
-            # continuous line from prvious chat line.
-            grouped_chats[current_date].append(line)
-            continue
-
-
-        # Parse each chat line
-        chat_match = re.match(DATE_PATTERN_PC_MSG + r'\s*(.*)', line)
-        if chat_match:
-            speaker, time_part, message = None, None, None
-            if len(chat_match.groups()) == 4:
-                # ampm
-                speaker, am_pm, time_part, message = chat_match.groups()
-            elif len(chat_match.groups()) == 3:
-                # no ampm
-                speaker, time_part, message = chat_match.groups()
-            else:
-                # headers
-                continue
-            grouped_chats[current_date].append(f"{speaker}: {message}")
-        
-        
-    result = []
-
-    for date, messages in grouped_chats.items():
-        result.append(f"{date}")
-        result.extend(messages)
-        result.append("")  # for new line between different dates
-    
-    return "\n".join(result)
-
-
-def split_text(text, chunk_size=10000, max_chunks=10):
-    # 텍스트를 chunk_size만큼 뒤에서부터 나누기
-    length = len(text)
-    # print("텍스트 길이:"+str(length))
-    chunks = []
-    for i in range(max_chunks):
-        start_index = max(0, length - (i + 1) * chunk_size)
-        end_index = length - i * chunk_size
-        if start_index >= end_index:
-            break
-        chunks.append(text[start_index:end_index])
-        if start_index == 0:
-            break  # 텍스트의 시작까지 도달하면 종료
-    chunks.reverse()  # 뒤에서부터 자른 후 순서를 원래대로 정렬
-    #print("청크:"+str(chunks))
-    return chunks
-
-
-def gpt_request(kakao_chat):
-    client = OpenAI()
-    response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
-        messages=[
-            {
-                "role": "system",
-                "content": """
-                너는 심리 및 대화 분석 전문가야.
-                첨부된 채팅 내역을 바탕으로 대화 참여자들의 말투, 성격, 추억 등을 분석해.
-                실제 대화 내역을 그대로 가져와서 상담 참여자가 분석에 대해서 더 공감할 수 있도록 해.
-                실제 대화 내역은 [실제 대화 내역]으로 감싸서 표시.
-                """,
-            },
-            {
-                "role": "user",
-                "content": "채팅 내역 : " + kakao_chat,
-            },
-        ],
-    )
-    return response.choices[0].message.content
-
-# 최종 결과 통합때만 gpt-4o 사용
-def aggregate_responses(combined_responses):
-    client = OpenAI()
-    response = client.chat.completions.create(
-        model="gpt-4o",
-        messages=[
-            {
-                "role": "system",
-                "content": """
-                당신은 대화 분석 전문가임. 
-                아래는 다른 전문가들이 분석한 내용임. 
-                겹치는 분석 내용을 우선적으로 포함시키고, 이외에도 흥미로운 내용들이 있다면 추가함.
-                대화 참여자들의 말투, 성격, 추억 등을 분석하는 것이 목표이며, 추억은 최대한 많이 포함시키도록 함.
-                실제 대화 내역이 포함되도록 하고, 대화 내역은 각색하지 않고 그대로 인용. 이는 리포트를 보는 사람들이 실제 자신의 대화 내용을 확인함으로써, 리포트에 더욱 설득되도록 하기 위함임.
-                """,
-            },
-            {
-                "role": "user",
-                "content": combined_responses,
-            },
-            {
-                "role": "system",
-                "content": """
-                각 영역을 ** 등의 기호를 사용해서 구분하지 말고 대괄호안에 주제를 넣는 방식으로 구분.
-                최대한 많은 내용을 포함시키도록 하고, 겹치는 내용은 중복해서 포함시키지 않도록 주의.
-                분석 내용을 뒷받침 하는 자료로 대화 내역을 그대로 사용함.
-                """,
-            },
-        ],
-    )
-    return response.choices[0].message.content
 
 # Streamlit 인터페이스 구성
 st.title('카카오톡 대화 분석 서비스')
@@ -280,67 +19,68 @@ st.markdown('''
 이를 통해 나와 상대방의 대화 습관, 심리, 추억 등을 알 수 있습니다.
 ''')
 
-# OpenAI API 키 입력 (환경 변수 또는 수동 입력)
-# if not api_key:
-#     api_key = st.text_input("OpenAI API Key", type="password")
+# 세션 상태 초기화
+if 'clicked_buttons' not in st.session_state:
+    st.session_state.clicked_buttons = []
+if 'results' not in st.session_state:
+    st.session_state.results = []
+if 'modal_title' not in st.session_state:
+    st.session_state.modal_title = "기본 분석 결과"
+if 'modal_content' not in st.session_state:
+    st.session_state.modal_content = ""
+if 'modal_clicked' not in st.session_state:
+    st.session_state.modal_clicked = False
+if 'cleaned_content' not in st.session_state:
+    st.session_state.cleaned_content = None
+if 'combined_chunks' not in st.session_state:
+    st.session_state.combined_chunks = ""
+if 'combined_responses' not in st.session_state:
+    st.session_state.combined_responses = ""
+if 'file_uploaded' not in st.session_state:
+    st.session_state.file_uploaded = False
+if 'is_loading' not in st.session_state:
+    st.session_state.is_loading = True
+if 'uploaded_file' not in st.session_state:
+    st.session_state.uploaded_file = None
+#img_data = None
+# 모달 함수 정의
+@st.experimental_dialog(st.session_state.modal_title, width="large")
+def show_modal():
+    if st.session_state.is_loading:
+        with st.spinner(text='대화 내용 분석 진행중입니다. 워드클라우드를 확인하며 조금만 기다려주세요!'):
+                # 파일 읽기
+            file_content = st.session_state.uploaded_file.read().decode("utf-8")
+            
+            # 시간 정보 제거
+            try:
+                cleaned_content = module.group_chat_dialogs(file_content)
+            except Exception:
+                cleaned_content = file_content
 
-# 파일 업로드   
-uploaded_file = st.file_uploader("카카오톡 채팅 내역 업로드", type="txt")
+            st.session_state.cleaned_content = cleaned_content
 
-cleaned_content = None
+            if st.session_state.cleaned_content is not None:
+                chunks = module.split_text(st.session_state.cleaned_content)
+                st.session_state.combined_chunks = "\n\n".join(chunks)
 
-if uploaded_file is not None:
-    # 파일 읽기
-    file_content = uploaded_file.read().decode("utf-8")
-    
-    # 시간 정보 제거
-    cleaned_content = None
-    try:
-        cleaned_content = group_chat_dialogs(file_content)
-    except(Exception):
-        # st.warning("휴대폰 카카오톡 앱에서 내보내기한 파일만 지원됩니다.")\
-        cleaned_content = file_content
+                words = module.preprocess_text_for_wordcloud(st.session_state.cleaned_content)
+                word_frequencies = module.get_word_frequencies(words)
 
+                module.generate_wordcloud(word_frequencies)
+                
+                # 워드클라우드를 이미지로 변환
+                buf = io.BytesIO()
+                plt.savefig(buf, format='png')
+                buf.seek(0)
+                img_data = base64.b64encode(buf.read()).decode('utf-8')
+                buf.close()
 
-if cleaned_content is not None:
+                st.image(f"data:image/png;base64,{img_data}", use_column_width=True)
 
-    chunks = split_text(cleaned_content)
-    combined_chunks = "\n\n".join(chunks)
-
-
-    #청크 개수 확인
-    origin_len = len(file_content)
-    cleaned_len = len(cleaned_content)
-    print("==============================")
-    print("|| Uploaded File : "+uploaded_file.name)
-    print("|| 원본 텍스트 길이:"+str(origin_len))
-    print("|| 가공 텍스트 길이:"+str(cleaned_len))
-    if origin_len > 0:
-        print("|| 압축률 : {:.2f}%".format(cleaned_len / origin_len * 100.0))
-    print("|| 청크 개수:"+str(len(chunks)))
-    print("")
-
-    words = preprocess_text_for_wordcloud(cleaned_content)
-    word_frequencies = get_word_frequencies(words)
-
-    with st.spinner("분석 중..."):
-        generate_wordcloud(word_frequencies)
-        st.pyplot(plt)
-
-        
-    ##################################
-    # whether run basic analysis or not
-    ##################################
-    make_response = True
-    # make_response = False
-    
-    # GPT-4 API 요청 병렬 처리
-    if make_response:
-        if "responses" not in st.session_state and make_response:
-            responses = []
-            with st.spinner("분석 중..."):
+                # GPT-4 API 요청 병렬 처리
+                responses = []
                 with ThreadPoolExecutor() as executor:
-                    future_to_chunk = {executor.submit(gpt_request, chunk): chunk for chunk in chunks}
+                    future_to_chunk = {executor.submit(module.gpt_request, chunk): chunk for chunk in chunks}
                     for future in as_completed(future_to_chunk):
                         try:
                             response = future.result()
@@ -348,83 +88,139 @@ if cleaned_content is not None:
                         except Exception as exc:
                             st.error(f"Chunk 처리 중 오류 발생: {exc}")
 
-            # 응답 통합
-            combined_responses = "\n\n".join(responses)
-            with st.spinner("리포트 생성중 ..."):
-                final_result = aggregate_responses(combined_responses)
-        
-            # 결과 저장
-            st.session_state.responses = responses
-            st.session_state.combined_responses = combined_responses
-            st.session_state.final_result = final_result
-        else:
-            responses = st.session_state.responses
-            combined_responses = st.session_state.combined_responses
-            final_result = st.session_state.final_result
+                # 응답 통합
+                st.session_state.combined_responses = "\n\n".join(responses)
+                print("기본 분석 완료")
+                st.session_state.final_result = module.aggregate_responses(st.session_state.combined_responses)
+                st.session_state.results.append(("기본 분석","기본 분석입니다.",st.session_state.final_result + f"![워드클라우드](data:image/png;base64,{img_data})"))
+                st.session_state.clicked_buttons.append("기본 분석")
+                st.session_state.is_loading = False
+                print("기본 분석 완료2")
 
-    
-        # 결과 출력
-        with st.container(border=True):
-            st.markdown(f"## 최종 결과\n\n")
-            st.markdown(final_result.replace('\n','\n\n'),False)
-    
+                # 모달 내용 업데이트
+                update_modal_content(f"{st.session_state.results[0][2]}")
+
+    if callable(st.session_state.modal_content):  # additional_result가 함수인지 확인
+        st.session_state.modal_content()
     else:
-        #skip result
-        final_result = ""
-    
-    # 세션 상태 초기화
-    if 'clicked_buttons' not in st.session_state:
-        st.session_state.clicked_buttons = []
-    if 'results' not in st.session_state:
-        st.session_state.results = []
+        st.write(f"{st.session_state.modal_content}")
+    st.session_state.modal_clicked = False
 
 
-    # 추가 분석
-    st.markdown('''
-    ### 추가 분석 옵션
-    아래 버튼 중 하나를 클릭하여 추가 분석을 요청할 수 있습니다:
-    ''')
 
-    #########################################
-    # Add buttons here
-    # ('button name', function, use analyzed respones(True) or whole chunk(False))
-    #########################################
-    available_buttons = [
-        ('전생에 둘은 무슨 관계였을까?', module.analyze_past_life, False),
-        ('시 작성', module.write_poem,True),
-        ('랩 가사 작성', module.write_rap_lyric ,True),
-        ('기념일 생성', module.create_anniversary,False),
-        ('월별 추억 돌아보기', module.monthly_event, False),
-        ('감정 단어 분석하기', module.emotion_donut ,False),
-    ]
+if st.session_state.modal_clicked:
+    show_modal()
+
+def update_modal_content(content):
+    st.session_state.modal_content += content
+    st.session_state.modal_clicked = True
+    st.rerun()
+
+# 파일 처리 함수
+def process_file(uploaded_file):
+        show_modal()
+
+def handle_button_click(button_name, explanation, process_function, prompt):
+    if button_name == "기본 분석" and st.session_state.file_uploaded:
+        process_function(prompt)
+    if not prompt:
+        st.toast("카카오톡 대화를 먼저 입력하세요")
+        return
+    if button_name in st.session_state.clicked_buttons:
+        # 이미 실행한 결과가 있으면 그 결과를 모달에 표시
+        result_index = st.session_state.clicked_buttons.index(button_name)
+        st.session_state.modal_content = st.session_state.results[result_index][2]
+        st.session_state.modal_title = button_name
+        st.session_state.modal_clicked = True
+    else:
+        if button_name == "기본 분석":
+            st.session_state.modal_title = button_name
+            st.session_state.modal_content = "로딩 중..."
+            show_modal()
+            with st.spinner(f"{button_name} 진행중..."):
+                process_file(st.session_state.uploaded_file)
+        else:
+            with st.spinner(f"{button_name} 진행중..."):
+                additional_result = process_function(prompt)
+                st.session_state.clicked_buttons.append(button_name)
+                st.session_state.results.append((button_name, explanation, additional_result))
+                st.session_state.modal_title = button_name
+                st.session_state.modal_content = additional_result
+                st.session_state.modal_clicked = True
+    st.experimental_rerun()
+
+# 파일 업로드   
+st.session_state.uploaded_file = st.file_uploader("카카오톡 채팅 내역 업로드", type="txt")
+if st.session_state.uploaded_file is not None and st.session_state.file_uploaded is False:
+    st.session_state.file_uploaded = True
+    handle_button_click("기본 분석", "카카오톡 대화를 입력해주세요. \n 말투, 성격, 추억 등을 먼저 종합적으로 분석해드립니다.", process_file, st.session_state.uploaded_file)
 
 
-    # 클릭된 버튼에 해당하는 결과 출력
+# 버튼들 정의
+available_buttons = [
+    ('기본 분석', "카카오톡 대화를 입력해주세요. \n 말투, 성격, 추억 등을 먼저 종합적으로 분석해드립니다.", process_file, False),
+    ('전생 관계 분석', "전생에 어떤 관계였을지 소설 형태로 작성해줍니다. \n 과연 전생에 어떤 인연이 있었길래 이렇게 또 만났을까요?", module.analyze_past_life, False),
+    ('시 작성', "우리의 관계로 작성해보는 시 \n 로맨틱한 시일까요 슬픈 시일까요?", module.write_poem, True),
+    ('랩 가사 작성', "신나는 박자감과 느껴보는 우리의 힙한 관계", module.write_rap_lyric, True),
+    ('기념일 생성', "모든 사람들이 챙기는 기념일 말고!! \n 우리만의 특별한 기념일을 만들어보세요", module.create_anniversary, False),
+    ('월별 추억 돌아보기', "현생에 치여 살던 우리 \n 잊고 있던 과거의 추억들을 한번 살펴봐요", module.monthly_event, False),
+    ('감정 단어 분석하기', "너는 너무 부정적이야. 데이터로 보여줄테니 반성해 \n 라고 외치고 싶을 때", module.emotion_donut, False),
+]
 
-    for button_name, result in st.session_state.results:
-        if isinstance(result, str):
-            # st.text_area(button_name, result, height=400)
-            with st.container(border=True):
-                st.markdown(f"## {button_name}\n\n")
-                st.markdown(result,False)
-        else :
-            # if result is given as callable
-            with st.container(border=True):
-                result()
-
-    # 버튼 클릭 핸들러 함수 정의
-    def handle_button_click(button_name, process_function, prompt):
-        with st.spinner(f"{button_name} 진행중..."):
-            additional_result = process_function(prompt)
-        st.session_state.clicked_buttons.append(button_name)
-        st.session_state.results.append((button_name, additional_result))
-        st.experimental_rerun()  # 버튼 클릭 시 새로고침
-
-    # 클릭되지 않은 버튼 표시
-    for button_name, process_function, use_response in available_buttons:
-        if button_name not in st.session_state.clicked_buttons:
-            if st.button(button_name):
-                if use_response:
-                    handle_button_click(button_name, process_function, combined_responses)
+# 버튼 UI 구성 및 클릭 처리
+cols = st.columns(3)
+for idx, (button_name, explanation, process_function, use_response) in enumerate(available_buttons):
+    is_clicked = button_name in st.session_state.clicked_buttons
+    background_color = "#d3d3d3" if button_name in st.session_state.clicked_buttons else "#f0f0f0"
+    button_style = f"background-color: {background_color}; height: 200px; width: 100%; font-size: 20px; border: none;"
+    with cols[idx % 3]:
+        button_placeholder = st.empty()  # Create an empty placeholder for the button
+        with button_placeholder:
+            if st.button(f"### {button_name}\n {explanation}"):
+                if button_name in st.session_state.clicked_buttons:
+                    result_index = st.session_state.clicked_buttons.index(button_name)
+                    st.session_state.modal_content = st.session_state.results[result_index][2]
+                    st.session_state.modal_title = button_name
+                    st.session_state.modal_clicked = True
+                    st.experimental_rerun()
                 else:
-                    handle_button_click(button_name, process_function, combined_chunks)
+                    if use_response:
+                        handle_button_click(button_name, explanation, process_function, st.session_state.combined_responses)
+                    else:
+                        handle_button_click(button_name, explanation, process_function, st.session_state.combined_chunks)
+        # Update the placeholder with the styled button
+        button_html = f"""
+        <style>
+        #{button_placeholder.element_id} button {{
+            background-color: {'#4CAF50' if is_clicked else '#f0f0f0'};
+            color: {'white' if is_clicked else 'black'};
+            border: 2px solid {'#4CAF50' if is_clicked else '#d3d3d3'};
+            height: 200px;
+            width: 100%;
+            font-size: 20px;
+        }}
+        </style>
+        """
+        st.markdown(button_html, unsafe_allow_html=True)
+
+# CSS 스타일로 버튼 크기 조정
+st.markdown("""
+    <style>
+    div.stButton > button {
+        height: 200px;
+        width: 100%;
+        font-size: 20px;
+    }
+    div[data-testid=stSpinner] {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    div[data-testid=stToast] {
+        padding: 0 auto;
+        margin: 0 auto;
+        background-color: #0D33B3;
+        width: 20%;
+    }
+    </style>
+    """, unsafe_allow_html=True)
