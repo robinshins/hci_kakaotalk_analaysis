@@ -91,12 +91,10 @@ def show_modal():
 
                 # 응답 통합
                 st.session_state.combined_responses = "\n\n".join(responses)
-                print("기본 분석 완료")
                 st.session_state.final_result = module.aggregate_responses(st.session_state.combined_responses)
                 st.session_state.results.append(("기본 분석","기본 분석입니다.",st.session_state.final_result + f"![워드클라우드](data:image/png;base64,{img_data})"))
                 st.session_state.clicked_buttons.append("기본 분석")
                 st.session_state.is_loading = False
-                print("기본 분석 완료2")
 
                 # 모달 내용 업데이트
                 update_modal_content(f"{st.session_state.results[0][2]}")
@@ -177,7 +175,7 @@ for idx, (button_name, explanation, process_function, use_response) in enumerate
     with cols[idx % 3]:
         button_placeholder = st.empty()  # Create an empty placeholder for the button
         with button_placeholder:
-            if st.button(f"### {button_name}\n {explanation}"):
+            if st.button(f"### {button_name if button_name not in st.session_state.clicked_buttons else button_name + "(완료)"}\n {explanation if button_name not in st.session_state.clicked_buttons else "클릭해서 결과를 확인하세요"}"):
                 if button_name in st.session_state.clicked_buttons:
                     result_index = st.session_state.clicked_buttons.index(button_name)
                     st.session_state.modal_content = st.session_state.results[result_index][2]
