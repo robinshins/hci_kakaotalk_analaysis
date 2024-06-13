@@ -148,7 +148,7 @@ def handle_button_click(button_name, explanation, process_function, prompt):
                 st.session_state.modal_title = button_name
                 st.session_state.modal_content = additional_result
                 st.session_state.modal_clicked = True
-    st.experimental_rerun()
+    st.rerun()
 
 # 파일 업로드   
 st.session_state.uploaded_file = st.file_uploader("카카오톡 채팅 내역 업로드", type="txt")
@@ -183,7 +183,7 @@ for idx, (button_name, explanation, process_function, use_response) in enumerate
                     st.session_state.modal_content = st.session_state.results[result_index][2]
                     st.session_state.modal_title = button_name
                     st.session_state.modal_clicked = True
-                    st.experimental_rerun()
+                    st.rerun()
                 else:
                     if use_response:
                         handle_button_click(button_name, explanation, process_function, st.session_state.combined_responses)
