@@ -1,8 +1,8 @@
 import streamlit as st
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
-# import module
-import dummy_module as module
+import module
+# import dummy_module as module
 import matplotlib.pyplot as plt
 import io
 import base64
@@ -186,6 +186,34 @@ for idx, button in enumerate(available_buttons):
             else:
                 st.toast("카카오톡 대화를 먼저 입력하세요")
 
+
+st.markdown("""
+    <style>
+    .centered-button {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        position: fixed;
+        bottom: 20px;
+        width: 100%;
+    }
+    .centered-button a {
+        background-color: #794BDB;
+        color: white;
+        padding: 14px 25px;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        border-radius: 15px 15px 0px 15px;
+    }
+    .centered-button a:hover {
+        background-color: #6C43C4;
+    }
+    </style>
+    <div class="centered-button">
+        <a href="https://forms.gle/ysV2jzyU352BcmDx5" target="_blank">사용 후기 남기기 🥰</a>
+    </div>
+""", unsafe_allow_html=True)
 
 # CSS 스타일로 버튼 크기 조정
 st.markdown("""
