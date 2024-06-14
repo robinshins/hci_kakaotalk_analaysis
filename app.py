@@ -13,13 +13,32 @@ if os.getenv("IS_STREAMLIT_CLOUD") != "true":
     load_dotenv() 
     api_key = os.getenv("OPENAI_API_KEY")
 
-# Streamlit 인터페이스 구성
+# Mainpage UI
 st.title('카카오톡 대화 분석 서비스')
 st.markdown('''
 가장 최근 대화부터 최대 10만자까지의 대화를 분석합니다.  
 이를 통해 나와 상대방의 대화 습관, 심리, 추억 등을 알 수 있습니다.  
-카카오톡 내역은 따로 보관하지 않으며, OpenAI사의 GPT에게만 제공됩니다.
 ''')
+custom_css = """
+    <style>
+        #custom-text {
+            background-color: #DFF0D8;
+            color: #3C763D;
+            font-size: 14px;
+            padding-top: 10px;
+            padding-bottom: 10px;
+            padding-left: 14px;
+            padding-right: 20px;
+            border-radius: 5px;
+            margin-top: -20px;
+            margin-bottom: 30px;
+        }
+    </style>
+"""
+st.markdown(custom_css, unsafe_allow_html=True)
+st.markdown('<p id="custom-text">이 서비스는 카톡 내용을 저장하지 않으니 안심하세요! GPT에게 분석을 요청할 때도 개인정보는 암호화됩니다.</p>', unsafe_allow_html=True)
+
+
 
 # 세션 상태 초기화
 if 'clicked_buttons' not in st.session_state:
@@ -30,6 +49,8 @@ if 'results' not in st.session_state:
     st.session_state.results = {}
 if 'modal_clicked' not in st.session_state:
     st.session_state.modal_clicked = False
+if 'modal_title' not in st.session_state:
+    st.session_state.modal_title = "TITLE"
 if 'cleaned_content' not in st.session_state:
     st.session_state.cleaned_content = None
 if 'combined_chunks' not in st.session_state:
@@ -99,7 +120,7 @@ def basic_analyze(combined_responses):
 
 
 # 모달 함수 정의
-@st.experimental_dialog("Title" if st.session_state.selected_button is None else st.session_state.selected_button[0], width="large")
+@st.experimental_dialog("Title" if st.session_state.modal_title is None else st.session_state.modal_title, width="large")
 def show_modal():
 
     (button_name, explanation, process_function, source)  = st.session_state.selected_button
@@ -137,19 +158,20 @@ def show_modal():
 
 
 def handle_button_click(button):
+    st.session_state.modal_title = button[0]
     st.session_state.selected_button = button
+    st.session_state.modal_clicked=True
     # if not st.session_state.is_loading:
     #     st.session_state.modal_clicked = True
 
 # 버튼들 정의
 available_buttons = [
-    ('기본 분석', "카카오톡 대화를 입력해주세요. \n 말투, 성격, 추억 등을 먼저 종합적으로 분석해드립니다.", basic_analyze, st.session_state.combined_responses),
-    ('전생 관계 분석', "전생에 어떤 관계였을지 소설 형태로 작성해줍니다. \n 과연 전생에 어떤 인연이 있었길래 이렇게 또 만났을까요?", module.analyze_past_life, st.session_state.combined_responses),
-    # ('시 작성', "우리의 관계로 작성해보는 시 \n 로맨틱한 시일까요 슬픈 시일까요?", module.write_poem, True),
-    ('랩 가사 작성', "신나는 박자감과 느껴보는 우리의 힙한 관계", module.write_rap_lyric, st.session_state.final_result),
-    ('기념일 생성', "모든 사람들이 챙기는 기념일 말고!! \n 우리만의 특별한 기념일을 만들어보세요", module.create_anniversary, st.session_state.combined_responses),
-    ('월별 추억 돌아보기', "현생에 치여 살던 우리 \n 잊고 있던 과거의 추억들을 한번 살펴봐요", module.monthly_event, st.session_state.combined_responses),
-    ('감정 단어 분석하기', "너는 너무 부정적이야. 데이터로 보여줄테니 반성해 \n 라고 외치고 싶을 때", module.emotion_donut, st.session_state.combined_responses),
+    ('기본 분석', "카카오톡 대화를 분석하여 관계 리포트를 뽑아드려요", basic_analyze, st.session_state.combined_responses),
+    ('감정 단어 분석하기', "둘 사이에 어떤 감정 단어가 가장 많이 오고 갔을까요?", module.emotion_donut, st.session_state.combined_responses),
+    ('월별 추억 돌아보기', "현생에 치여 잊고 살아왔던 둘만의 추억을 돌아봐요", module.monthly_event, st.session_state.combined_responses),
+    ('전생 관계 분석', "우린 전생에 어떤 사이길래 이렇게 다시 만났을까요?", module.analyze_past_life, st.session_state.combined_responses),
+    ('랩 가사 작성', "신나는 비트에서 느껴지는 우리의 힙한 관계!", module.write_rap_lyric, st.session_state.final_result),
+    ('기념일 생성', "선배 기념일 만들어주세요! 혹시.. 우리 추억도 같이??", module.create_anniversary, st.session_state.combined_responses),
 ]
 
 # 파일 업로드   
@@ -157,7 +179,6 @@ st.session_state.uploaded_file = st.file_uploader("카카오톡 채팅 내역 �
 if st.session_state.uploaded_file is not None and st.session_state.file_uploaded is False:
     st.session_state.file_uploaded = True
     handle_button_click(available_buttons[0])
-    st.session_state.modal_clicked=True
 
 elif st.session_state.uploaded_file is None:
     st.session_state.file_uploaded = False
@@ -222,13 +243,15 @@ st.markdown("""
         height: 200px;
         width: 100%;
         font-size: 20px;
+        font-weight: bold;
+
     }
     div[data-testid=stSpinner] {
         display: flex;
         align-items: center;
         justify-content: center;
     }
-    div[data-testid=stToast] {
+        div[data-testid=stToast] {
         padding: 0 auto;
         margin: 0 auto;
         color: white;
@@ -238,6 +261,8 @@ st.markdown("""
     }
     </style>
     """, unsafe_allow_html=True)
+
+
 
 if st.session_state.modal_clicked:
     show_modal()
