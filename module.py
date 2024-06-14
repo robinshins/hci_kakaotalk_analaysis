@@ -434,9 +434,7 @@ def emotion_donut(combined_responses):
     result =  response.choices[0].message.content
 
 
-    print(result)
     result = '\n'.join(result.strip().splitlines()[1:-1])   # remove extras
-    print(result)
 
     data = json.loads(result)
 
@@ -445,8 +443,8 @@ def emotion_donut(combined_responses):
     series = data["series"]
 
     # Print the resulting Python objects
-    print("options =", options)
-    print("series =", series)
+    # print("options =", options)
+    # print("series =", series)
 
     def gen_chart():
         st_apexcharts(options, series, 'donut', '600', '감정 빈도수')
