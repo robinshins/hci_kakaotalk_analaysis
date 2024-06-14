@@ -12,13 +12,32 @@ if os.getenv("IS_STREAMLIT_CLOUD") != "true":
     load_dotenv() 
     api_key = os.getenv("OPENAI_API_KEY")
 
-# Streamlit 인터페이스 구성
+# Mainpage UI
 st.title('카카오톡 대화 분석 서비스')
 st.markdown('''
 가장 최근 대화부터 최대 10만자까지의 대화를 분석합니다.  
 이를 통해 나와 상대방의 대화 습관, 심리, 추억 등을 알 수 있습니다.  
-카카오톡 내역은 따로 보관하지 않으며, OpenAI사의 GPT에게만 제공됩니다.
 ''')
+custom_css = """
+    <style>
+        #custom-text {
+            background-color: #DFF0D8;
+            color: #3C763D;
+            font-size: 14px;
+            padding-top: 10px;
+            padding-bottom: 10px;
+            padding-left: 14px;
+            padding-right: 20px;
+            border-radius: 5px;
+            margin-top: -20px;
+            margin-bottom: 30px;
+        }
+    </style>
+"""
+st.markdown(custom_css, unsafe_allow_html=True)
+st.markdown('<p id="custom-text">이 서비스는 카톡 내용을 저장하지 않으니 안심하세요! GPT에게 분석을 요청할 때도 개인정보는 암호화됩니다.</p>', unsafe_allow_html=True)
+
+
 
 # 세션 상태 초기화
 if 'clicked_buttons' not in st.session_state:
@@ -43,6 +62,7 @@ if 'is_loading' not in st.session_state:
     st.session_state.is_loading = True
 if 'uploaded_file' not in st.session_state:
     st.session_state.uploaded_file = None
+
 #img_data = None
 # 모달 함수 정의
 @st.experimental_dialog(st.session_state.modal_title, width="large")
@@ -140,14 +160,26 @@ def handle_button_click(button_name, explanation, process_function, prompt):
         st.session_state.modal_clicked = True
     st.rerun()
 
-# 파일 업로드   
+# File Uploader
 st.session_state.uploaded_file = st.file_uploader("카카오톡 채팅 내역 업로드", type="txt")
 if st.session_state.uploaded_file is not None and st.session_state.file_uploaded is False:
     st.session_state.file_uploaded = True
     handle_button_click("기본 분석", "카카오톡 대화를 입력해주세요. \n 말투, 성격, 추억 등을 먼저 종합적으로 분석해드립니다.", process_file, st.session_state.uploaded_file)
 
+custom_css = """
+    <style>
+        .custom-margin {
+            margin-bottom: 20px;
+        }
+    </style>
+"""
 
-# 버튼들 정의
+st.markdown(custom_css, unsafe_allow_html=True)
+if st.session_state.uploaded_file:
+    st.markdown('<div class="custom-margin">' + st.session_state.uploaded_file + '</div>', unsafe_allow_html=True)
+
+
+
 available_buttons = [
     ('기본 분석', "카카오톡 대화를 분석하여 관계 리포트를 뽑아드려요", process_file, False),
     ('감정 단어 분석하기', "둘 사이에 어떤 감정 단어가 가장 많이 오고 갔을까요?", module.emotion_donut, False),
@@ -163,7 +195,7 @@ for idx, (button_name, explanation, process_function, use_response) in enumerate
     is_clicked = button_name in st.session_state.clicked_buttons
     background_color = "#d3d3d3" if button_name in st.session_state.clicked_buttons else "#f0f0f0"
     button_style = f"background-color: {background_color}; height: 200px; width: 100%; font-size: 20px; border: none text-align: center; white-space: normal;"
-    button_label = button_name if button_name not in st.session_state.clicked_buttons else f"{button_name}(완료)"
+    button_label = button_name if button_name not in st.session_state.clicked_buttons else f"{button_name} (완료)"
     button_explanation = explanation if button_name not in st.session_state.clicked_buttons else "클릭해서 결과를 확인하세요"
 
     with cols[idx % 3]:
@@ -181,8 +213,6 @@ for idx, (button_name, explanation, process_function, use_response) in enumerate
                     else:
                         handle_button_click(button_name, explanation, process_function, st.session_state.combined_chunks)
 
-
-# CSS 스타일로 버튼 크기 조정
 st.markdown("""
     <style>
     div.stButton > button {
@@ -190,6 +220,7 @@ st.markdown("""
         width: 100%;
         font-size: 20px;
         font-weight: bold;
+
     }
     div[data-testid=stSpinner] {
         display: flex;
