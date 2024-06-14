@@ -12,7 +12,9 @@ from wordcloud import WordCloud
 import matplotlib.pyplot as plt
 import streamlit.components.v1 as components
 
+import time
 
+WAIT = 3 # wait seconds
 
 def preprocess_text_for_wordcloud(text):
     cleaned_text = re.sub(r'\[.*?\]', '', text)
@@ -221,32 +223,39 @@ def split_text(text, chunk_size=10000, max_chunks=10):
 
 def gpt_request(kakao_chat):
     print("running dummy gpt_request")
+    time.sleep(WAIT)
     return "Dummy Response"
 
 # 최종 결과 통합때만 gpt-4o 사용
 def aggregate_responses(combined_responses):
     print("running dummy aggregate_response")
+    time.sleep(WAIT)
     return "Dummy Aggregated Response"
 
 def analyze_past_life2(combined_responses):
+    time.sleep(WAIT)
     return ""
 
 def analyze_past_life(combined_responses):
     print("running dummy analyze_past_life")
+    time.sleep(WAIT)
     return "Dummy Past Life"
     
 
 def write_poem(combined_responses):
     print("running dummy write_poem")
+    time.sleep(WAIT)
     return "Dummy Poem"
 
 def create_anniversary(kakao_chat):
     print("running dummy create_anniversary")
+    time.sleep(WAIT)
     return "Dummy Anniverary"
 
 
 def monthly_event(kakao_chat):
     print("running dummy monthly_event")
+    time.sleep(WAIT)
     return "Dummy Monthly Event"
     
 
@@ -255,10 +264,12 @@ def monthly_event(kakao_chat):
 
 def make_quiz(combined_responses):
     print("running dummy make_quiz")
+    time.sleep(WAIT)
     return "Dummy Quiz"
 
 def emotion_donut(combined_responses):
     print("running dummy emotion_donut")
+    time.sleep(WAIT)
 
     options = {'chart': {'toolbar': {'show': False}}, 'labels': ['기쁨', '슬픔', '놀람', '분노', '공포', '혐오', '중립'], 'legend': {'show': True, 'position': 'bottom'}}
     series = [300, 50, 120, 80, 10, 20, 150]
@@ -271,4 +282,5 @@ def emotion_donut(combined_responses):
 
 def write_rap_lyric(combined_responses):
     print("running dummy write_rap_lyric")
+    time.sleep(WAIT)
     return "Dummy Rap Lyric"
