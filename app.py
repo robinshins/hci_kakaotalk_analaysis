@@ -149,13 +149,12 @@ if st.session_state.uploaded_file is not None and st.session_state.file_uploaded
 
 # 버튼들 정의
 available_buttons = [
-    ('기본 분석', "카카오톡 대화를 입력해주세요. \n 말투, 성격, 추억 등을 먼저 종합적으로 분석해드립니다.", process_file, False),
-    ('전생 관계 분석', "전생에 어떤 관계였을지 소설 형태로 작성해줍니다. \n 과연 전생에 어떤 인연이 있었길래 이렇게 또 만났을까요?", module.analyze_past_life, False),
-    ('시 작성', "우리의 관계로 작성해보는 시 \n 로맨틱한 시일까요 슬픈 시일까요?", module.write_poem, True),
-    ('랩 가사 작성', "신나는 박자감과 느껴보는 우리의 힙한 관계", module.write_rap_lyric, True),
-    ('기념일 생성', "모든 사람들이 챙기는 기념일 말고!! \n 우리만의 특별한 기념일을 만들어보세요", module.create_anniversary, False),
-    ('월별 추억 돌아보기', "현생에 치여 살던 우리 \n 잊고 있던 과거의 추억들을 한번 살펴봐요", module.monthly_event, False),
-    ('감정 단어 분석하기', "너는 너무 부정적이야. 데이터로 보여줄테니 반성해 \n 라고 외치고 싶을 때", module.emotion_donut, False),
+    ('기본 분석', "카카오톡 대화를 분석하여 관계 리포트를 뽑아드려요", process_file, False),
+    ('감정 단어 분석하기', "둘 사이에 어떤 감정 단어가 가장 많이 오고 갔을까요?", module.emotion_donut, False),
+    ('월별 추억 돌아보기', "현생에 치여 잊고 살아왔던 둘만의 추억을 돌아봐요", module.monthly_event, False),
+    ('전생 관계 분석', "우린 전생에 어떤 사이길래 이렇게 다시 만났을까요?", module.analyze_past_life, False),
+    ('랩 가사 작성', "신나는 비트에서 느껴지는 우리의 힙한 관계!", module.write_rap_lyric, True),
+    ('기념일 생성', "선배 기념일 만들어주세요! 혹시.. 우리 추억도 같이??", module.create_anniversary, False),
 ]
 
 # 버튼 UI 구성 및 클릭 처리
@@ -163,7 +162,7 @@ cols = st.columns(3)
 for idx, (button_name, explanation, process_function, use_response) in enumerate(available_buttons):
     is_clicked = button_name in st.session_state.clicked_buttons
     background_color = "#d3d3d3" if button_name in st.session_state.clicked_buttons else "#f0f0f0"
-    button_style = f"background-color: {background_color}; height: 200px; width: 100%; font-size: 20px; border: none;"
+    button_style = f"background-color: {background_color}; height: 200px; width: 100%; font-size: 20px; border: none text-align: center; white-space: normal;"
     button_label = button_name if button_name not in st.session_state.clicked_buttons else f"{button_name}(완료)"
     button_explanation = explanation if button_name not in st.session_state.clicked_buttons else "클릭해서 결과를 확인하세요"
 
@@ -190,17 +189,21 @@ st.markdown("""
         height: 200px;
         width: 100%;
         font-size: 20px;
+        font-weight: bold;
     }
     div[data-testid=stSpinner] {
         display: flex;
         align-items: center;
         justify-content: center;
     }
-    div[data-testid=stToast] {
+        div[data-testid=stToast] {
         padding: 0 auto;
         margin: 0 auto;
-        background-color: #0D33B3;
+        color: white;
+        background: #ff4b4b;
         width: 20%;
+        min-width:400px;
     }
     </style>
     """, unsafe_allow_html=True)
+
