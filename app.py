@@ -277,7 +277,9 @@ st.markdown("""
         width: 20%;
         min-width:400px;
     }
+        
     </style>
+
     """, unsafe_allow_html=True)
 
 

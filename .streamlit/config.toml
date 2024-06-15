@@ -1,0 +1,8 @@
+[theme]
+# 기본 테마 설정입니다.
+
+
+
+[global]
+# GitHub와 Fork 아이콘을 비활성화합니다.
+hideStreamlitMarkings = true
