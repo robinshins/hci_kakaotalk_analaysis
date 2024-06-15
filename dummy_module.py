@@ -40,6 +40,7 @@ def preprocess_text_for_wordcloud(text):
 DATE_PATTERN1 = r'(\d{4}년 \d{1,2}월 \d{1,2}일) ((오전|오후)?\s*\d{1,2}:\d{1,2})'   # 2023년 12월 12일 (오전) 4:24   
 DATE_PATTERN2 = r'(\d{4}. \d{1,2}. \d{1,2}(.)?) ((오전|오후)?\s*\d{1,2}:\d{1,2})'    # 2023. 10. 1(.) (오전) 4:24
 DATE_PATTERN3 = r'(\d{4}/\d{1,2}/\d{1,2}) (\d{1,2}:\d{1,2})'        # 2023/1/12 19:23
+DATE_PATTERN4 = r'(\d{4}-\d{1,2}-\d{1,2}) (\d{1,2}:\d{1,2}:\d{1,2})'        # 2024-03-15 14:05:17
 
 DATE_PATTERN_PC_DATE = r'(-*\s*\d{4}년 \d{1,2}월 \d{1,2}일 [월화수목금토일]\s*-*)'  # --------------- 2024년 4월 3일 수요일 ---------------
 DATE_PATTERN_PC_MSG = r'\[(.*)\] \[((오전|오후)? \d{1,2}:\d{2})\]' # [홍길동] [오후 10:49]
@@ -85,6 +86,9 @@ def group_chat_dialogs(chat):
             elif re.match(DATE_PATTERN3, line):
                 date_pattern = DATE_PATTERN3
                 break
+            elif re.match(DATE_PATTERN4, line):
+                date_pattern = DATE_PATTERN4
+                break
             elif re.match(DATE_PATTERN_PC_DATE, line):
                 date_pattern = DATE_PATTERN_PC_DATE
                 break
@@ -123,7 +127,7 @@ def parse_chat_mobile(chat_lines, date_pattern):
 
 
         # Parse each chat line
-        chat_match = re.match(date_pattern + r',?\s*(.*)\s*:\s*(.*)', line)
+        chat_match = re.match(date_pattern + r',?\s*(.*)\s*[:,]\s*(.*)', line)
         if chat_match:
             date_part, time_part, speaker, message = None, None, None, None
             if len(chat_match.groups()) == 5:
@@ -144,7 +148,7 @@ def parse_chat_mobile(chat_lines, date_pattern):
         result.append(f"{date}")
         result.extend(messages)
         result.append("")  # for new line between different dates
-    
+    print(result)
     return "\n".join(result)
 
 

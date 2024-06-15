@@ -107,6 +107,9 @@ def create_wordcloud():
     st.session_state.wordcloud_img = img_data
 
 def basic_analyze(combined_responses):
+
+
+
     # GPT-4 API 요청 병렬 처리
     responses = []
     with ThreadPoolExecutor() as executor:
@@ -125,13 +128,16 @@ def basic_analyze(combined_responses):
     final_result = module.aggregate_responses(st.session_state.combined_responses)
     st.session_state.final_result = final_result
     print("basic analyze done")
-    return final_result
+    def print_results():
+        st.write(f"{final_result}")
+        st.image(f"data:image/png;base64,{st.session_state.wordcloud_img}", use_column_width=True)
+    return print_results
 
 
 # 모달 함수 정의
-@st.experimental_dialog("Title" if st.session_state.modal_title is None else st.session_state.modal_title, width="large")
+@st.experimental_dialog(" ", width="large")
 def show_modal():
-
+    st.markdown("Title" if st.session_state.modal_title is None else "# "+st.session_state.modal_title)
     (button_name, explanation, process_function, source)  = st.session_state.selected_button
 
     modal_content = "Content"
@@ -140,6 +146,8 @@ def show_modal():
         with st.spinner(f'워드클라우드를 생성중입니다!'):
             create_wordcloud()
 
+    if button_name == "기본 분석" and button_name not in st.session_state.clicked_buttons:
+        st.image(f"data:image/png;base64,{st.session_state.wordcloud_img}", use_column_width=True)        
 
     if button_name in st.session_state.clicked_buttons:
         # 이미 실행한 결과가 있으면 그 결과를 모달에 표시
@@ -148,7 +156,6 @@ def show_modal():
     else:
         st.session_state.is_loading = True
         with st.spinner(f'{button_name} 진행중입니다. 조금만 기다려주세요!'):
-            st.image(f"data:image/png;base64,{st.session_state.wordcloud_img}", use_column_width=True)
             result = process_function(source)
             st.session_state.results[button_name]=(explanation, result)
             st.session_state.clicked_buttons.append(button_name)
@@ -159,6 +166,8 @@ def show_modal():
         modal_content()
     else:
         st.write(f"{modal_content}")
+
+
 
 
 
