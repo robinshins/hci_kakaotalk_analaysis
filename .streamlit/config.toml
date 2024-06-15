@@ -1,7 +1,9 @@
 [theme]
 # 기본 테마 설정입니다.
 
-
+[server]
+enableCORS = false
+# CORS 설정을 비활성화할 수 있습니다.
 
 [global]
 # GitHub와 Fork 아이콘을 비활성화합니다.

@@ -286,3 +286,11 @@ st.markdown("""
 
 if st.session_state.modal_clicked:
     show_modal()
+
+hide_streamlit_style = """
+            <style>
+            #MainMenu {visibility: hidden;}
+            footer {visibility: hidden;}
+            </style>
+            """
+st.markdown(hide_streamlit_style, unsafe_allow_html=True) 
