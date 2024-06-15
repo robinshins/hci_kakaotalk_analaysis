@@ -6,6 +6,15 @@ import module
 import matplotlib.pyplot as plt
 import io
 import base64
+from PIL import Image
+
+
+im = Image.open("favicon.ico")
+st.set_page_config(
+    page_title="카카오톡 대화 분석 서비스",
+    page_icon=im,
+
+)
 
 # 로컬에서만 .env 파일에서 API 키 가져오기
 if os.getenv("IS_STREAMLIT_CLOUD") != "true":

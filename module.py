@@ -16,6 +16,7 @@ import streamlit.components.v1 as components
 
 
 
+
 def preprocess_text_for_wordcloud(text):
     cleaned_text = re.sub(r'\[.*?\]', '', text)
     cleaned_text = re.sub(r'\d{4}년 \d{1,2}월 \d{1,2}일 \w요일', '', cleaned_text)
