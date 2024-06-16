@@ -193,7 +193,7 @@ available_buttons = [
 ]
 
 # 파일 업로드   
-st.session_state.uploaded_file = st.file_uploader("카카오톡 채팅 내역 업로드", type="txt")
+st.session_state.uploaded_file = st.file_uploader("카카오톡 채팅 내역 업로드", type=["txt","csv"])
 if st.session_state.uploaded_file is not None and st.session_state.file_uploaded is False:
     st.session_state.file_uploaded = True
     handle_button_click(available_buttons[0])
