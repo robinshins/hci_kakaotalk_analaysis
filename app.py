@@ -7,7 +7,165 @@ import matplotlib.pyplot as plt
 import io
 import base64
 from PIL import Image
-#dd
+import re
+from collections import Counter, defaultdict
+
+DATE_PATTERN1 = r'(\d{4}년 \d{1,2}월 \d{1,2}일) ((오전|오후)?\s*\d{1,2}:\d{1,2})'   # 2023년 12월 12일 (오전) 4:24   
+DATE_PATTERN2 = r'(\d{4}. \d{1,2}. \d{1,2}(.)?) ((오전|오후)?\s*\d{1,2}:\d{1,2})'    # 2023. 10. 1(.) (오전) 4:24
+DATE_PATTERN3 = r'(\d{4}/\d{1,2}/\d{1,2}) (\d{1,2}:\d{1,2})'        # 2023/1/12 19:23
+DATE_PATTERN4 = r'(\d{4}-\d{1,2}-\d{1,2}) (\d{1,2}:\d{1,2}:\d{1,2})'        # 2024-03-15 14:05:17
+
+DATE_PATTERN_PC_DATE = r'(-*\s*\d{4}년 \d{1,2}월 \d{1,2}일 [월화수목금토일]\s*-*)'  # --------------- 2024년 4월 3일 수요일 ---------------
+DATE_PATTERN_PC_MSG = r'\[(.*)\] \[((오전|오후)? \d{1,2}:\d{2})\]' # [홍길동] [오후 10:49]
+
+
+
+# obsolete
+def clean_text(text):
+    # 정규 표현식을 사용하여 날짜 형식을 남기고 시간 형식 제거
+    cleaned_text = re.sub(r'\d{4}/\d{2}/\d{2} \d{2}:\d{2}, ', '', text)
+    # 쉼표 뒤에 남아 있는 공백 제거
+    cleaned_text = re.sub(r',\s+', ', ', cleaned_text)
+    # 중복 공백 제거
+    cleaned_text = re.sub(r'\s{2,}', ' ', cleaned_text)
+    return cleaned_text
+
+def group_chat_dialogs(chat):
+    chat_lines = chat.strip().split('\n')
+    date_pattern = None
+
+        # find which pattern fits by trying various patterns
+    for line in chat_lines:
+        if date_pattern is None:
+            if re.match(DATE_PATTERN1, line):
+                date_pattern = DATE_PATTERN1
+                break
+            elif re.match(DATE_PATTERN2, line):
+                date_pattern = DATE_PATTERN2
+                break
+            elif re.match(DATE_PATTERN3, line):
+                date_pattern = DATE_PATTERN3
+                break
+            elif re.match(DATE_PATTERN4, line):
+                date_pattern = DATE_PATTERN4
+                break
+            elif re.match(DATE_PATTERN_PC_DATE, line):
+                date_pattern = DATE_PATTERN_PC_DATE
+                break
+
+    print('found pattern : '+ date_pattern)
+
+    if date_pattern == DATE_PATTERN_PC_DATE:
+        return parse_chat_pc(chat_lines)
+    else:
+        return parse_chat_mobile(chat_lines,date_pattern)
+
+
+def parse_chat_mobile(chat_lines, date_pattern):
+    grouped_chats = defaultdict(list)
+    current_date = None
+    current_time = None
+    for line in chat_lines:
+        # Check for date line
+        date_match = re.match(date_pattern, line)
+        if date_match:
+            if current_date != date_match.group(1):
+                current_date = date_match.group(1)
+                # grouped_chats[current_date].append(current_date)
+
+            if current_time != date_match.group(2):
+                current_time = date_match.group(2)
+                grouped_chats[current_date].append('\n'+current_time)
+
+        elif current_date is None:
+            # pass headers
+            continue
+        else:
+            # continuous line from prvious chat line.
+            grouped_chats[current_date].append(line)
+            continue
+
+
+        # Parse each chat line
+        chat_match = re.match(date_pattern + r',?\s*(.*)\s*[:,]\s*(.*)', line)
+        if chat_match:
+            date_part, time_part, speaker, message = None, None, None, None
+            if len(chat_match.groups()) == 5:
+                # no ampm
+                date_part, am_pm, time_part, speaker, message = chat_match.groups()
+            elif len(chat_match.groups()) == 4:
+                # no ampm
+                date_part, time_part, speaker, message = chat_match.groups()
+            else:
+                # headers
+                continue
+            grouped_chats[current_date].append(f"{speaker}: {message}")
+        
+        
+    result = []
+
+    for date, messages in grouped_chats.items():
+        result.append(f"{date}")
+        result.extend(messages)
+        result.append("")  # for new line between different dates
+    
+    return "\n".join(result)
+
+
+def parse_chat_pc(chat_lines):
+    grouped_chats = defaultdict(list)
+    current_date = None
+    current_time = None
+    for line in chat_lines:
+        # Check for date line
+        date_match = re.match(DATE_PATTERN_PC_DATE, line)
+        date_match_msg = re.match(DATE_PATTERN_PC_MSG, line)
+
+        if date_match:
+            if current_date != date_match.group(1):
+                current_date = date_match.group(1)
+                # continue to next lines
+                continue
+
+        if date_match_msg:
+            if current_time != date_match_msg.group(2):
+                current_time = date_match_msg.group(2)
+                grouped_chats[current_date].append('\n'+current_time)
+
+        elif current_date is None:
+            # pass headers
+            continue
+        else:
+            # continuous line from prvious chat line.
+            grouped_chats[current_date].append(line)
+            continue
+
+
+        # Parse each chat line
+        chat_match = re.match(DATE_PATTERN_PC_MSG + r'\s*(.*)', line)
+        if chat_match:
+            speaker, time_part, message = None, None, None
+            if len(chat_match.groups()) == 4:
+                # ampm
+                speaker, am_pm, time_part, message = chat_match.groups()
+            elif len(chat_match.groups()) == 3:
+                # no ampm
+                speaker, time_part, message = chat_match.groups()
+            else:
+                # headers
+                continue
+            grouped_chats[current_date].append(f"{speaker}: {message}")
+        
+        
+    result = []
+
+    for date, messages in grouped_chats.items():
+        result.append(f"{date}")
+        result.extend(messages)
+        result.append("")  # for new line between different dates
+    
+    return "\n".join(result)
+
 
 im = Image.open("favicon.ico")
 st.set_page_config(
@@ -84,7 +242,7 @@ def create_wordcloud():
     
     # 시간 정보 제거
     try:
-        cleaned_content = module.group_chat_dialogs(file_content)
+        cleaned_content = group_chat_dialogs(file_content)
     except Exception:
         cleaned_content = file_content
 
@@ -162,17 +320,28 @@ def show_modal():
             modal_content = result
             st.rerun()
 
-    if callable(modal_content):  # additional_result가 함수인지 확인
-        modal_content()
+    if button_name == "감정 단어 분석하기":
+        print("emotion analyze")
+        result1, result2 = modal_content
+        st.write("분석 요청자")
+        result1()
+        st.write("대화 상대자")
+        result2()
     else:
-        st.write(f"{modal_content}")
+        if callable(modal_content) :
+            modal_content()
+        else:
+            st.write(f"{modal_content}")
 
 
 
 
+def emotion_analyze(combined_responses):
+    result1 = module.emotion_donut(combined_responses)
+    result2 = module.emotion_donut2(combined_responses)
 
 
-
+    return result1, result2
 
 
 def handle_button_click(button):
@@ -185,7 +354,7 @@ def handle_button_click(button):
 # 버튼들 정의
 available_buttons = [
     ('기본 분석', "카카오톡 대화를 분석하여 관계 리포트를 뽑아드려요", basic_analyze, st.session_state.combined_responses),
-    ('감정 단어 분석하기', "둘 사이에 어떤 감정 단어가 가장 많이 오고 갔을까요?", module.emotion_donut, st.session_state.combined_responses),
+    ('감정 단어 분석하기', "둘 사이에 어떤 감정 단어가 가장 많이 오고 갔을까요?", emotion_analyze, st.session_state.combined_responses),
     ('월별 추억 돌아보기', "현생에 치여 잊고 살아왔던 둘만의 추억을 돌아봐요", module.monthly_event, st.session_state.combined_responses),
     ('전생 관계 분석', "우린 전생에 어떤 사이길래 이렇게 다시 만났을까요?", module.analyze_past_life, st.session_state.combined_responses),
     ('랩 가사 작성', "신나는 비트에서 느껴지는 우리의 힙한 관계!", module.write_rap_lyric, st.session_state.final_result),
@@ -193,6 +362,8 @@ available_buttons = [
 ]
 
 # 파일 업로드   
+url = "https://cs.kakao.com/helps_html/470002560?locale=ko"
+st.markdown("[카카오톡 대화 추출 방법 안내](%s)" % url)
 st.session_state.uploaded_file = st.file_uploader("카카오톡 채팅 내역 업로드", type=["txt","csv"])
 if st.session_state.uploaded_file is not None and st.session_state.file_uploaded is False:
     st.session_state.file_uploaded = True
