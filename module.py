@@ -72,7 +72,7 @@ def gpt_request(kakao_chat):
     print("gpt_request")
     client = OpenAI()
     response = client.chat.completions.create(
-        model="gpt-4o-mini-mini",
+        model="gpt-4o-mini",
         messages=[
             {
                 "role": "system",
