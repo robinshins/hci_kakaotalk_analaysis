@@ -72,7 +72,7 @@ def gpt_request(kakao_chat):
     print("gpt_request")
     client = OpenAI()
     response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
+        model="gpt-4o-mini-mini",
         messages=[
             {
                 "role": "system",
@@ -91,11 +91,11 @@ def gpt_request(kakao_chat):
     )
     return response.choices[0].message.content
 
-# 최종 결과 통합때만 gpt-4o 사용
+# 최종 결과 통합때만 gpt-4o-mini 사용
 def aggregate_responses(combined_responses):
     client = OpenAI()
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model="gpt-4o-mini",
         messages=[
             {
                 "role": "system",
@@ -131,7 +131,7 @@ def analyze_past_life2(combined_responses):
 def analyze_past_life(combined_responses):
     client = OpenAI()
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model="gpt-4o-mini",
         messages=[
             {
                 "role": "system",
@@ -152,7 +152,7 @@ def analyze_past_life(combined_responses):
 def write_poem(combined_responses):
     client = OpenAI()
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model="gpt-4o-mini",
         messages=[
             {
                 "role": "system",
@@ -173,7 +173,7 @@ def write_poem(combined_responses):
 def create_anniversary(kakao_chat):
     client = OpenAI()
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model="gpt-4o-mini",
         messages=[
             {
                 "role": "system",
@@ -196,7 +196,7 @@ def create_anniversary(kakao_chat):
 def monthly_event(kakao_chat):
     client = OpenAI()
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model="gpt-4o-mini",
         messages=[
             {
                 "role": "system",
@@ -219,7 +219,7 @@ def monthly_event(kakao_chat):
 def make_quiz(combined_responses):
     client = OpenAI()
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model="gpt-4o-mini",
         messages=[
             {
                 "role": "system",
@@ -240,7 +240,7 @@ def make_quiz(combined_responses):
 def emotion_donut(combined_responses):
     client = OpenAI()
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model="gpt-4o-mini",
         messages=[
             {
                 "role": "system",
@@ -302,7 +302,7 @@ def emotion_donut(combined_responses):
 def emotion_donut2(combined_responses):
     client = OpenAI()
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model="gpt-4o-mini",
         messages=[
             {
                 "role": "system",
@@ -364,7 +364,7 @@ def emotion_donut2(combined_responses):
 def write_rap_lyric(combined_responses):
     client = OpenAI()
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model="gpt-4o-mini",
         messages=[
             {
                 "role": "system",
