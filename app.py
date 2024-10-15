@@ -245,7 +245,7 @@ if 'uploaded_file' not in st.session_state:
 if 'wordcloud_img' not in st.session_state:
     st.session_state.wordcloud_img = None
 if 'chunks' not in st.session_state:
-    st.session_state.chunks = [""]
+    st.session_state.chunks = ["",""]
 
 #img_data = None
 def create_wordcloud():
