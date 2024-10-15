@@ -22,13 +22,23 @@ DATE_PATTERN_PC_MSG = r'\[(.*)\] \[((오전|오후)? \d{1,2}:\d{2})\]' # [홍길
 
 # obsolete
 def clean_text(text):
-    # 정규 표현식을 사용하여 날짜 형식을 남기고 시간 형식 제거
-    cleaned_text = re.sub(r'\d{4}/\d{2}/\d{2} \d{2}:\d{2}, ', '', text)
-    # 쉼표 뒤에 남아 있는 공백 제거
-    cleaned_text = re.sub(r',\s+', ', ', cleaned_text)
-    # 중복 공백 제거
-    cleaned_text = re.sub(r'\s{2,}', ' ', cleaned_text)
-    return cleaned_text
+    # 날짜를 추출하여 날짜가 변경될 때마다 출력
+    lines = text.strip().split('\n')
+    current_date = None
+    cleaned_lines = []
+
+    for line in lines:
+        # 날짜와 시간, 사용자명, 메시지를 분리
+        match = re.match(r'(\d{4}/\d{2}/\d{2}) \d{2}:\d{2}, (.+?) : (.+)', line)
+        if match:
+            date, user, message = match.groups()
+            # 날짜가 변경되면 새로운 날짜를 추가
+            if date != current_date:
+                current_date = date
+                cleaned_lines.append(current_date)
+            cleaned_lines.append(f"{user} : {message}")
+
+    return "\n".join(cleaned_lines)
 
 def group_chat_dialogs(chat):
     chat_lines = chat.strip().split('\n')
@@ -183,7 +193,7 @@ if os.getenv("IS_STREAMLIT_CLOUD") != "true":
 # Mainpage UI
 st.title('카카오톡 대화 분석 서비스')
 st.markdown('''
-가장 최근 대화부터 최대 10만자까지의 대화를 분석합니다.  
+가장 최근 대화부터 최대 5만자까지의 대화를 분석합니다.  
 이를 통해 나와 상대방의 대화 습관, 심리, 추억 등을 알 수 있습니다.  
 ''')
 custom_css = """
@@ -234,6 +244,8 @@ if 'uploaded_file' not in st.session_state:
     st.session_state.uploaded_file = None
 if 'wordcloud_img' not in st.session_state:
     st.session_state.wordcloud_img = None
+if 'chunks' not in st.session_state:
+    st.session_state.chunks = [""]
 
 #img_data = None
 def create_wordcloud():
@@ -247,6 +259,7 @@ def create_wordcloud():
         cleaned_content = file_content
 
     chunks = module.split_text(cleaned_content)
+    st.session_state.chunks = chunks
     st.session_state.cleaned_content = cleaned_content
     st.session_state.combined_chunks = "\n\n".join(chunks)
 
@@ -355,7 +368,7 @@ def handle_button_click(button):
 available_buttons = [
     ('기본 분석', "카카오톡 대화를 분석하여 관계 리포트를 뽑아드려요", basic_analyze, st.session_state.combined_responses),
     ('감정 단어 분석하기', "둘 사이에 어떤 감정 단어가 가장 많이 오고 갔을까요?", emotion_analyze, st.session_state.combined_responses),
-    ('월별 추억 돌아보기', "현생에 치여 잊고 살아왔던 둘만의 추억을 돌아봐요", module.monthly_event, st.session_state.combined_responses),
+    ('예전 추억 돌아보기', "현생에 치여 잊고 살아왔던 둘만의 추억을 돌아봐요", module.monthly_event, st.session_state.chunks[-1]),
     ('전생 관계 분석', "우린 전생에 어떤 사이길래 이렇게 다시 만났을까요?", module.analyze_past_life, st.session_state.combined_responses),
     ('랩 가사 작성', "신나는 비트에서 느껴지는 우리의 힙한 관계!", module.write_rap_lyric, st.session_state.final_result),
     ('기념일 생성', "선배 기념일 만들어주세요! 혹시.. 우리 추억도 같이??", module.create_anniversary, st.session_state.combined_responses),

@@ -50,9 +50,30 @@ def generate_wordcloud(word_frequencies):
     plt.show()
 
 
-def split_text(text, chunk_size=1000, max_chunks=1):
-    # 텍스트를 chunk_size만큼 뒤에서부터 나누기
-    length = len(text)
+def clean_text(text):
+    # 날짜를 추출하여 날짜가 변경될 때마다 출력
+    lines = text.strip().split('\n')
+    current_date = None
+    cleaned_lines = []
+
+    for line in lines:
+        # 날짜와 시간, 사용자명, 메시지를 분리
+        match = re.match(r'(\d{4}/\d{2}/\d{2}) \d{2}:\d{2}, (.+?) : (.+)', line)
+        if match:
+            date, user, message = match.groups()
+            # 날짜가 변경되면 새로운 날짜를 추가
+            if date != current_date:
+                current_date = date
+                cleaned_lines.append(current_date)
+            cleaned_lines.append(f"{user} : {message}")
+
+    return "\n".join(cleaned_lines)
+
+
+def split_text(text, chunk_size=3000, max_chunks=10):
+    cleaned_text = clean_text(text)
+    # 텍스트를 chunk_size만큼 뒤에서부터나누기
+    length = len(cleaned_text)
     # print("텍스트 길이:"+str(length))
     chunks = []
     for i in range(max_chunks):
@@ -60,7 +81,7 @@ def split_text(text, chunk_size=1000, max_chunks=1):
         end_index = length - i * chunk_size
         if start_index >= end_index:
             break
-        chunks.append(text[start_index:end_index])
+        chunks.append(cleaned_text[start_index:end_index])
         if start_index == 0:
             break  # 텍스트의 시작까지 도달하면 종료
     chunks.reverse()  # 뒤에서부터 자른 후 순서를 원래대로 정렬
@@ -69,7 +90,7 @@ def split_text(text, chunk_size=1000, max_chunks=1):
 
 
 def gpt_request(kakao_chat):
-    print("gpt_request")
+    print("gpt_request: ", kakao_chat)
     client = OpenAI()
     response = client.chat.completions.create(
         model="gpt-4o-mini",
@@ -93,6 +114,7 @@ def gpt_request(kakao_chat):
 
 # 최종 결과 통합때만 gpt-4o-mini 사용
 def aggregate_responses(combined_responses):
+    print("aggregate_responses: ", combined_responses)
     client = OpenAI()
     response = client.chat.completions.create(
         model="gpt-4o-mini",
@@ -194,6 +216,7 @@ def create_anniversary(kakao_chat):
 
 
 def monthly_event(kakao_chat):
+    print("monthly_event" , kakao_chat)
     client = OpenAI()
     response = client.chat.completions.create(
         model="gpt-4o-mini",
@@ -201,8 +224,26 @@ def monthly_event(kakao_chat):
             {
                 "role": "system",
                 "content": """
-                채팅 내역을 바탕으로 각 월의 가장 메인이 되는 이벤트를 명사형으로 추출하고, 그 이벤트에 대한 두 줄 정도의 설명을 작성해주세요.
-                가장 최근 1년을 분석해주세요.
+                유저의 채팅 내역을 바탕으로 각 월의 가장 메인이 되는 이벤트를 명사형으로 추출하고, 그 이벤트에 대한 두 줄 정도의 설명을 작성해주세요.
+                분석할 수 있는 모든 달들을 분석해주세요. 연도 구분이 필요하면 연도까지 구분해주세요.
+                출력 예시:
+                
+                [2024년 1월]
+                두 사람이 식물원에 가서 식물을 구경했어요.
+                식물에 대해서 이야기하기도하고, 저녁에는 스테이크를 먹으며 하루를 마무리했어요.
+                00이는 ~~~ 라는 말을 하며 000한 감정을 표현했어요.
+                (더 풍성한 내용들 추가)
+
+                [2024년 2월]
+                1주년을 기념하여 두 사람이 서로에게 선물을 주고받았어요.
+                서로 옷을 선물했는데, 여자분의 옷은 사이즈가 맞지 않아서 교환하는 해프닝이 있었어요.
+                (더 풍성한 내용들 추가)
+
+                [2024년 3월]
+                .
+                .
+                .
+
                 """,
             },
             {
